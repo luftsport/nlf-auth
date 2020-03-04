@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NLF Auth | Help</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Sign in with NLF Auth for {{client_name}}">
+    <meta name="author" content="Norges Luftsportforbund">
+    <link rel="icon" href="{{ url_for('static', filename='favicon') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nlf-icons/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bs/bootstrap.min.css') }}">
+    <style>.card {
+        margin: 0 auto; /* Added */
+        float: none; /* Added */
+        margin-bottom: 10px; /* Added */
+        margin-top: 10px;
+        }
+
+
+    </style>
+</head>
+<body>
+
+<main role="main" class="container">
+
+
+    <!--<i class="nlf nlf-propeller nlf-propeller-spin nlf-stack-2x text-dark"></i>-->
+    <div class="card" style="max-width: 50rem;">
+        <div class="card-header text-center">
+            <i class="nlf nlf-logo-plain nlf-5x text-dark"></i>
+            <h5 class="card-title">Help for <u>{{client_name}}</u></h5>
+
+        </div>
+        <div class="card-body">
+            <p>
+                The NLF Auth (this site) is an oauth2 service to grant external applications, in this case <u>{{
+                client_name }}</u>, access
+                to your profile from NIF's <a href="https://mi.nif.no">https://mi.nif.no</a> (Min Idrett) using the same
+                username and password as you use to log in at <a href="https://mi.nif.no">https://mi.nif.no</a>
+            </p>
+            <p>
+                By logging in you consent to let this service try to log in to Min Idrett on your behalf with the
+                credentials
+                you have given in order to verify your identity.
+            </p>
+            <p>
+                The authentication service will after a successful authentication download your profile page at
+                <a href="https://mi.nif.no">https://mi.nif.no</a> to be able to parse your id (NIF's person id, which is
+                a unique integer number not identified with your personalia).
+            </p>
+            <p>
+                This id will be included in the <a href="https://en.wikipedia.org/wiki/JSON_Web_Token">access token</a>
+                which will be encrypted using a private certificate, and issued for <u>{{ client_name }}</u>. The token
+                will be
+                passed along when you are redirected back to <u>{{ client_name }}</u> at the address <u>{{ redirect_uri
+                }}</u> after a successful authentication.
+            </p>
+            <p>
+                <u>{{ client_name }}</u> can then decode the access token using the corresponding public certificate and
+                then know your id and that you have authenticated successfully, ie you are the rightfully owner of the
+                id.
+            </p>
+        </div>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item">
+                I'm having trouble logging in! If you failed login with a correct username but wrong password, it might be
+                that the captcha was activated. You then need to go to <a href="https://mi.nif.no">https://mi.nif.no</a>
+                and do a successful login by first answering the captcha questions.
+            </li>
+            <li class="list-group-item">
+                Why, oh why? This is a workaround due to the fact that NIF do not provide a viable solution at this
+                time.
+            </li>
+
+            <li class="list-group-item">
+                Are my credentials stored on the server? No, they only live in memory as long as the context exists.
+                No storage backend is used because the tokens issued are self contained and signed with a certificate.
+            </li>
+            <li class="list-group-item">
+                More questions? Contact <a href="mailto:jostein.tangen@nlf.no">Jostein Tangen</a>
+            </li>
+            <li class="list-group-item">
+                Try to <a href="/auth?client_id={{ client_id }}&response_type={{ response_type }}&scope={{ client_scope }}&shebang={{ shebang }}&redirect_uri={{ redirect_uri }}">log in again</a> or
+                <a href="{{ redirect_uri }}">cancel</a> and go back
+            </li>
+        </ul>
+    </div>
+
+</main><!-- /.container -->
+
+
+</body>
+</html>

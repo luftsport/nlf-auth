@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NLF Auth | Sign In</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="Sign in with NLF Auth for {{client_name}}">
+    <meta name="author" content="Norges Luftsportforbund">
+    <link rel="icon" href="{{ url_for('static', filename='favicon') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/nlf-icons/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bs/bootstrap.min.css') }}">
+    <style>.card {
+        margin: 0 auto; /* Added */
+        float: none; /* Added */
+        margin-bottom: 10px; /* Added */
+        margin-top: 10px;
+        }
+
+
+    </style>
+    <script type="text/javascript">
+
+        function doLogin(id) {
+            document.getElementById('submit_btn').disabled = true;
+            document.getElementById('username').readOnly = true;
+            document.getElementById('password').readOnly = true;
+            document.getElementById('logintext').style.display = 'block';
+        }
+
+        (function() {
+        'use strict';
+          window.addEventListener('load', function() {
+            // Fetch all the forms we want to apply custom Bootstrap validation styles to
+            var forms = document.getElementsByClassName('needs-validation');
+            // Loop over them and prevent submission
+            var validation = Array.prototype.filter.call(forms, function(form) {
+              form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }
+                else {
+                    doLogin();
+                }
+                form.classList.add('was-validated');
+              }, false);
+            });
+          }, false);
+        })();
+
+
+
+    </script>
+</head>
+<body>
+
+<main role="main" class="container">
+    {% if cookies_check() %}
+    {# then user has already consented so no requirement for consent banner #}
+    {% else %}
+    {# show a cookie consent banner #}
+    <div id="cookie-consent-container" class="alert alert-success fixed-bottom" role="alert">
+        <div class="container">
+            <h4 class="alert-heading">This website uses cookies</h4>
+            <p>To be able to use this website you need to consent to it storing a
+                <a class="alert-link" href="http://cookiesandyou.com/">session cookie</a> in your browser
+            </p>
+            <p>
+                You can always decline and be taken back to where you came from.
+            </p>
+
+            <hr>
+            <p class="mb-0">
+            <div>
+                <button class="btn btn-success" id="cookie-consent">Got it!</button>&nbsp;&nbsp;
+                <a href="{{ redirect_uri }}">decline</a>
+            </div>
+            </p>
+        </div>
+    </div>
+
+    <script>
+            var fn = function () {
+                document.cookie = "cookie_consent=true";
+                document.getElementById('cookie-consent-container').hidden = true;
+            };
+            document.getElementById('cookie-consent').onclick = fn;
+
+    </script>
+    {% endif %}
+
+    <!--<i class="nlf nlf-propeller nlf-propeller-spin nlf-stack-2x text-dark"></i>-->
+    <div class="card" style="max-width: 25rem;">
+        <div class="card-header text-center">
+            <i class="nlf nlf-logo-plain nlf-5x text-dark"></i>
+            <p>Sign in to grant <u>{{client_name}}</u> access</p>
+        </div>
+        <div class="card-body">
+            <form action="/signin" method="post" class="needs-validation" novalidate>
+                <input name="_csrf_token" type="hidden" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="username" class="form-control" id="username" name="username" placeholder="Username"
+                           required>
+                    <div class="invalid-feedback">
+                        Please provide a username
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" placeholder="Password"
+                           required>
+                    <div class="invalid-feedback">
+                        Please provide a password
+                    </div>
+                </div>
+                <!--
+                <div class="form-group form-check">
+                    <input type="checkbox" name="consent" class="form-check-input" id="consent">
+                    <label class="form-check-label" for="consent"> Accept user access</label>
+                </div>
+                -->
+
+                <div id="logintext" class="alert alert-primary text-center" role="alert" style="display: none;">
+                    <strong>Authenticating, please wait...</strong>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                             style="width: 100%" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+                <button id="submit_btn" type="submit" class="btn btn-primary btn-block">Login
+                </button>
+                <p class="text-center"></p>
+                <p class="text-center"><a href="{{ redirect_uri }}">cancel</a></p>
+                <input type="hidden" name="client_id" value="{{ client_id }}">
+                <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}">
+                <input type="hidden" name="response_type" value="{{ response_type }}">
+                <input type="hidden" name="scope" value="{{ client_scope }}">
+                <input type="hidden" name="shebang" value="{{ shebang }}">
+            </form>
+        </div>
+
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item">
+                Your <strong>username</strong> and <strong>password</strong> are the same as you use to log in at
+                <a href="https://mi.nif.no">https://mi.nif.no</a> (Min Idrett)
+            </li>
+            <li class="list-group-item">
+                By logging in you are granting <u>{{ client_name }}</u> access to <u>{{ client_scope }}</u> your profile
+                at Min Idrett and redirect you back to <u>{{ redirect_uri }}</u>
+            </li>
+            <li class="list-group-item text-center"><a
+                    href="/help?client_id={{ client_id }}&scope={{ client_scope }}&response_type={{ response_type }}&shebang={{ shebang }}&redirect_uri={{ redirect_uri }}">Help</a>
+            </li>
+        </ul>
+    </div>
+
+</main>
+
+
+</body>
+</html>
