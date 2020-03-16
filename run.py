@@ -3,8 +3,17 @@ import urllib.parse as urlparse
 from auth import Auth, JWT_LIFE_SPAN, JWT_INTITAL, generate_state, decode_state
 from flask import Flask, redirect, render_template, request
 from urllib.parse import urlencode
-from settings import ERR, API_URL, API_HEADERS, CLIENT_BASE_URL, CLIENT_ID, SERVER_BASE_URL, SERVER_PROXY_SIGNING, \
-    SERVER_PROXY_AUTH
+from settings import (
+    ERR, API_URL,
+    API_HEADERS,
+    CLIENT_BASE_URL,
+    CLIENT_ID,
+    SERVER_BASE_URL,
+    SERVER_PROXY_SIGNING,
+    SERVER_PROXY_AUTH,
+    SERVER_PORT,
+    SERVER_DEBUG
+)
 import requests
 import logging
 from oidc import OIDC
@@ -393,4 +402,4 @@ if __name__ == '__main__':
     # context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
     # context.load_cert_chain('domain.crt', 'domain.key')
     # app.run(port = 5000, debug = True, ssl_context = context)
-    app.run(port=8080, debug=True)
+    app.run(port=SERVER_PORT, debug=SERVER_DEBUG)
