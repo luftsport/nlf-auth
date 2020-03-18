@@ -135,14 +135,16 @@ class Auth:
             # "scope": self.client.get('scope', 'read')
         }
 
-        access_token = jwt.encode(payload, get_certificate_key(client_id=self.client_id, cert='private'),
+        access_token = jwt.encode(payload,
+                                  get_certificate_key(client_id=self.client_id, cert='private'),
                                   algorithm='RS256').decode()
 
         return access_token
 
     def verify_token(self, token):
         try:
-            self.decoded_token = jwt.decode(token, get_certificate_key(client_id=self.client_id, cert='private'),
+            self.decoded_token = jwt.decode(token,
+                                            get_certificate_key(client_id=self.client_id, cert='public'),
                                             issuer=ISSUER, algorithm='HS256')
             return True
 
@@ -171,7 +173,7 @@ class Auth:
 
         try:
             decoded_token = jwt.decode(token,
-                                       get_certificate_key(client_id=self.client_id, cert='private'),
+                                       get_certificate_key(client_id=self.client_id, cert='public'),
                                        options={'verify_exp': False},
                                        issuer=ISSUER,
                                        algorithm='HS256')
@@ -190,7 +192,7 @@ class Auth:
     def get_user_id(self, token):
         try:
             decoded_token = jwt.decode(token,
-                                       get_certificate_key(client_id=self.client_id, cert='private'),
+                                       get_certificate_key(client_id=self.client_id, cert='public'),
                                        options={'verify_exp': False},
                                        issuer=ISSUER,
                                        algorithm='HS256')
