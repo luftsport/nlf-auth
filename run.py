@@ -15,9 +15,6 @@ from settings import (
     SERVER_DEBUG
 )
 
-# @TODO REMOVE
-from settings import PERSON_ID_DST, PERSON_ID_PROD
-
 import requests
 import logging
 from oidc import OIDC
@@ -157,11 +154,6 @@ def oidc_ret():
                 person_status, person_id = oidc.get_person_id(user.get('bp_id_sub', None))
 
                 if person_status is True:
-
-                    # Manually mapping person_id from DST to PROD
-                    # @TODO REMOVE!
-                    if person_id == PERSON_ID_DST:
-                        person_id = PERSON_ID_PROD
 
                     _auth.person_id = person_id
 
