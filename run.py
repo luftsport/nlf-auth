@@ -1,29 +1,32 @@
 import json
-# import ssl
 import urllib.parse as urlparse
-
-# from auth import (authenticate_user_credentials, generate_access_token,
-#                  verify_client_info, JWT_LIFE_SPAN)
-from auth import Auth, JWT_LIFE_SPAN, JWT_INTITAL, _is_nif_maintanance
-from flask import Flask, redirect, render_template, request, session, abort
+from auth import Auth, JWT_LIFE_SPAN, JWT_INTITAL, generate_state, decode_state
+from flask import Flask, redirect, render_template, request
 from urllib.parse import urlencode
-from csfr import generate_csrf_token
-from settings import ERR, API_URL, API_HEADERS
+from settings import (
+    ERR, API_URL,
+    API_HEADERS,
+    CLIENT_BASE_URL,
+    CLIENT_ID,
+    SERVER_BASE_URL,
+    SERVER_PROXY_SIGNING,
+    SERVER_PROXY_AUTH,
+    SERVER_PORT,
+    SERVER_DEBUG
+)
+
 import requests
 import logging
-import base64
+from oidc import OIDC
 
 app = Flask(__name__)
-app.config.update(dict(
-    SECRET_KEY="frewihuiowrhwerihrewiruihewirhiulw",
-    WTF_CSRF_SECRET_KEY="ewkrpewkjrpiewji0othuwhuohfouh"
-))
-app.jinja_env.globals['csrf_token'] = generate_csrf_token
-
 app.logger.setLevel(logging.DEBUG)
 
 
 def get_lungo_person(person_id):
+    """Resolve name and email by person id
+    @TODO Remove
+    """
     try:
         r = requests.get('{}/persons/{}?projection={{"full_name": 1, "address": 1}}'.format(API_URL, person_id),
                          headers=API_HEADERS)
@@ -34,30 +37,16 @@ def get_lungo_person(person_id):
 
             try:
                 email = resp.get('address', {}).get('email')[0]
-            except:
+            except Exception as e:
+                app.logger.exception('Could not get email adress from Lungo data')
                 email = ''
 
             return resp.get('full_name', 'Ukjent Navn'), email
 
     except Exception as e:
-        # print("ERROR", e)
-        pass
+        app.logger.exception('Could not get user from Lungo')
 
     return 'Ukjent Navn', ''
-
-
-# Cookie consent jinja processor
-@app.context_processor
-def inject_template_scope():
-    injections = dict()
-
-    def cookies_check():
-        value = request.cookies.get('cookie_consent')
-        return value == 'true'
-
-    injections.update(cookies_check=cookies_check)
-
-    return injections
 
 
 def process_redirect_uri(redirect_uri, new_entries, shebang=False):
@@ -74,10 +63,12 @@ def process_redirect_uri(redirect_uri, new_entries, shebang=False):
     queries.update(new_entries)
     url_parts[4] = urlencode(queries)
     url = urlparse.urlunparse(url_parts)
+
     return url
 
 
 def process_error(error, redirect_uri=None, shebang=0):
+    """A simple redirect uri with oauth2 errors"""
     if ERR[error]['code'] >= 500 or redirect_uri is None:
         return render_template('error.html',
                                error_msg=ERR[error]['descr'],
@@ -92,6 +83,104 @@ def process_error(error, redirect_uri=None, shebang=0):
                     code=ERR[error]['code'])
 
 
+@app.route('/{}'.format(SERVER_PROXY_AUTH), methods=['GET'])
+def oidc_proxy_chain():
+    """
+    The main entry point for OIDC
+
+    Just check, build a state parameter then redirect; proxy chain
+    :return:
+    """
+
+    # Parse input
+    client_id = request.args.get('client_id', None)
+    redirect_uri = request.args.get('redirect_uri', None)
+    response_type = request.args.get('response_type', None)
+    scope = request.args.get('scope', None)
+    shebang = request.args.get('shebang', 0)
+
+    if None in [client_id, redirect_uri, response_type]:
+        return process_error('invalid_request', redirect_uri=redirect_uri, shebang=shebang)
+
+    # Instantiate auth
+    _auth = Auth(client_id)
+
+    if len(_auth._get_client()) == 0:
+        return process_error('invalid_request')
+
+    # First verify redirect_uri
+    if not _auth.verify_redirect_uri(redirect_uri):
+        return process_error('invalid_request')
+
+    if scope is None or _auth.verify_scope(scope) is False:
+        return process_error('invalid_scope', redirect_uri=redirect_uri, shebang=shebang)
+
+    if not _auth.verify_response_type(response_type):
+        return process_error('invalid_request', redirect_uri=redirect_uri, shebang=shebang)
+
+    _state = generate_state(request.args)
+
+    # NIF OIDC params
+    params = {'client_id': CLIENT_ID,
+              'redirect_uri': '{}/{}'.format(SERVER_BASE_URL, SERVER_PROXY_SIGNING),
+              'state': _state,
+              'response_type': 'code',
+              'scope': 'openid roles web-origins'}
+
+    nif_bp_url = '{}/protocol/openid-connect/auth'.format(CLIENT_BASE_URL)
+
+    return redirect(process_redirect_uri(nif_bp_url, params), code=302)
+
+
+@app.route('/{}'.format(SERVER_PROXY_SIGNING), methods=['GET'])
+def oidc_ret():
+    try:
+        token = None
+
+        state = request.args.get('state')
+        args = decode_state(state=state)
+
+        _auth = Auth(client_id=args.get('client_id', None))
+
+        oidc = OIDC()
+
+        authz_status, authorization = oidc.get_authorization(code=request.args.get('code', None))
+
+        if authz_status is True:
+            user_status, user = oidc.get_user_info(token=authorization.get('access_token', None))
+
+            if user_status is True:
+
+                person_status, person_id = oidc.get_person_id(user.get('bp_id_sub', None))
+
+                if person_status is True:
+
+                    _auth.person_id = person_id
+
+                    _auth.get_melwin_id(person_id)
+
+                    token = _auth.generate_access_token()
+
+            return redirect(process_redirect_uri(args.get('redirect_uri', None),
+                                                 {
+                                                     _auth.client.get('response_type', 'access_token'): token,
+                                                     'token_type': 'JWT',
+                                                     'expires_in': JWT_INTITAL,
+                                                     'scope': _auth.client.get('scope', 'read'),
+                                                 },
+                                                 args.get('shebang', False)), code=302)
+        else:
+            return process_error('access_denied',
+                                 redirect_uri=args.get('redirect_uri', None),
+                                 shebang=args.get('shebang', False))
+    except Exception as e:
+        app.logger.exception('Could not authenticate')
+
+    return process_error('server_error',
+                         redirect_uri=args.get('redirect_uri', None),
+                         shebang=args.get('shebang', False))
+
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def catch_all(path):
@@ -103,115 +192,17 @@ def catch_all(path):
                            error_msg=ERR['invalid_request']['descr'])
 
 
-@app.before_request
-def csrf_protect():
-    if request.method == "POST" and request.endpoint == 'signin':
-
-        # print('FORM', request.form.get('_csrf_token'))
-        token = session.pop('_csrf_token', None)
-        # print('Session', token)
-        if not token or token != request.form.get('_csrf_token'):
-            #  print('CSFR')
-            abort(403)
-
-
 @app.after_request
 def after_request(response):
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, public, max-age=0"
-    response.headers["Expires"] = 0
-    response.headers["Pragma"] = "no-cache"
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, public, max-age=0'
+    response.headers['Expires'] = 0
+    response.headers['Pragma'] = 'no-cache'
     return response
 
 
-@app.route('/auth')
-def auth():
-    if _is_nif_maintanance() is True:
-        return process_error('nif_down')
-    # Describe the access request of the client and ask user for approval
-    client_id = request.args.get('client_id', None)
-    redirect_uri = request.args.get('redirect_uri', None)
-    response_type = request.args.get('response_type', None)
-    scope = request.args.get('scope', None)
-    shebang = request.args.get('shebang', 0)
-
-    if None in [client_id, redirect_uri, response_type]:
-        return process_error('invalid_request', redirect_uri=redirect_uri, shebang=shebang)
-
-    _auth = Auth(client_id)
-
-    if len(_auth._get_client()) == 0:
-        return process_error('invalid_request')
-
-    # First verify redirect_uri
-    if not _auth.verify_redirect_uri(redirect_uri):
-        return process_error('invalid_request')
-
-    if scope is None or _auth.verify_scope(scope) is False:
-        return process_error('invalid_scope', redirect_uri=redirect_uri, shebang=shebang)
-
-    if not _auth.verify_response_type(response_type):
-        return process_error('invalid_request', redirect_uri=redirect_uri, shebang=shebang)
-
-    return render_template('login_page.html',
-                           client_name=_auth.client.get('name', 'Ukjent'),
-                           client_scope=_auth.client.get('scope', 'read'),
-                           client_id=client_id,
-                           redirect_uri=redirect_uri,
-                           response_type=response_type,
-                           shebang=shebang)
-
-
 @app.route('/signin', methods=['GET', 'DELETE', 'PATCH', 'PUT', 'HEAD'])
-def wrong_hole():
+def wrong_method():
     return process_error('unsupported_response_type')
-
-
-@app.route('/signin', methods=['POST'])
-def signin():
-    # Issues authorization code
-    username = request.form.get('username', None)
-    password = request.form.get('password', None)
-
-    client_id = request.form.get('client_id', None)
-    redirect_uri = request.form.get('redirect_uri', None)
-    response_type = request.form.get('response_type', None)
-    scope = request.form.get('scope', None)
-    shebang = request.form.get('shebang', 0)
-
-    if None in [username, password, client_id, redirect_uri, response_type, scope]:
-        return process_error('invalid_request', redirect_uri, shebang)
-
-    _auth = Auth(client_id)
-
-    if len(_auth._get_client()) == 0:
-        return process_error('invalid_request')
-
-    # First verify redirect_uri
-    if not _auth.verify_redirect_uri(redirect_uri):
-        return process_error('invalid_request')
-
-    if scope is None or _auth.verify_scope(scope) is False:
-        return process_error('invalid_scope', redirect_uri=redirect_uri, shebang=shebang)
-
-    if not _auth.verify_response_type(response_type):
-        return process_error('invalid_request', redirect_uri=redirect_uri, shebang=shebang)
-
-    if not _auth.authenticate_user_credentials(username, password, client_id):
-        return process_error('access_denied', redirect_uri, shebang)
-
-    access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
-
-    # print('Test ')
-    # print(_auth.refresh_token(access_token))
-
-    return redirect(process_redirect_uri(redirect_uri,
-                                         {
-                                             _auth.client.get('response_type', 'access_token'): access_token,
-                                             'token_type': 'JWT',
-                                             'expires_in': JWT_INTITAL,
-                                             'scope': _auth.client.get('scope', 'read'),
-                                         },
-                                         shebang), code=302)
 
 
 @app.route('/revoke', methods=['POST'])
@@ -261,14 +252,9 @@ def confluence_token():
     grant_type = request.form.get('grant_type', None)
     client_secret = request.form.get('client_secret', None)
 
-    # print('Form: ', request.form)
-    # print('Vals: ', request.args)
-    # print('JSON: ', request.json)
-
     if grant_type == 'authorization_code':
 
         _auth = Auth(client_id)
-        # print(_auth.decoded_token)
 
         if token is not None and _auth.verify_client_secret(client_secret):
             if _auth.verify_token(token) is True:
@@ -278,8 +264,6 @@ def confluence_token():
 
                 access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
                 refresh_token = _auth.generate_access_token(expiry=JWT_INTITAL)
-                # print('Test ')
-                # print(_auth.refresh_token(access_token))
 
                 return json.dumps({
                     "access_token": access_token,
@@ -293,6 +277,10 @@ def confluence_token():
         return json.dumps({
             'error': 'access_denied'
         }), 401
+
+    return json.dumps({
+        'error': 'unsupported_response_type'
+    }), 401
 
 
 @app.route('/confluence/user', methods=['GET'])
@@ -320,8 +308,9 @@ def confluence_user():
                         'email': email,
                         'name': name
                     }), 200
-    except:
-        pass
+
+    except Exception as e:
+        app.logger.exception('Could not get Confluence User')
 
     return json.dumps({
         'error': 'access_denied'
@@ -381,7 +370,6 @@ def help():
     scope = request.args.get('scope', None)
     shebang = request.args.get('shebang', 0)
 
-    page_error = None
     _auth = Auth(client_id)
 
     if len(_auth._get_client()) == 0:
@@ -405,8 +393,9 @@ def help():
                            response_type=response_type,
                            shebang=shebang)
 
+
 if __name__ == '__main__':
     # context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
     # context.load_cert_chain('domain.crt', 'domain.key')
     # app.run(port = 5000, debug = True, ssl_context = context)
-    app.run(port=8080, debug=True)
+    app.run(port=SERVER_PORT, debug=SERVER_DEBUG)
