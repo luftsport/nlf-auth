@@ -1,40 +1,56 @@
 import jwt
 import time
-from nif_tools import Passbuy
-import requests
-from settings import clients, RETRY_USER
+from settings import CLIENTS, ISSUER, JWT_LIFE_SPAN, JWT_INTITAL
 import lungo
-from bs4 import BeautifulSoup
-
-ISSUER = 'nlf-auth-server'
-JWT_LIFE_SPAN = 3600
-JWT_INTITAL = 5 * 60
-REALM = 'minidrett'
-
-authorization_codes = {}
+from flask import current_app as app
 
 
-def _is_nif_maintanance():
-    """Check if maintanance mode
+def get_certificate_key(client_id, cert='private'):
+    certificate = None
+    file_name = CLIENTS.get(client_id).get('certificate')
+    with open('certs/{}-{}.pem'.format(file_name, cert), 'rb') as f:
+        certificate = f.read()
 
-    NIF web (KA/MI/SA) gives normal http 200, need to check title
-    Also: re.search('(?<=<title>).+?(?=</title>)', mytext, re.DOTALL).group().strip()
+    return certificate
 
-    :returns boolean is_maintanance:
+
+def generate_state(payload, expiry=JWT_LIFE_SPAN):
     """
+    :return:
+    """
+    data = payload.copy()
+    data['iss'] = ISSUER
+    data['exp'] = time.time() + expiry
+    data['iat'] = time.time()
+    state = jwt.encode(data, key=get_certificate_key(data.get('client_id', '')), algorithm='RS256').decode()
+
+    return state
+
+
+def decode_state(state, verify=True):
     try:
-        r = requests.get('https://{}.nif.no'.format(REALM))
+        claims = jwt.decode(state, verify=False)
+        if verify is True:
+            try:
+                jwt.decode(jwt=state,
+                           key=get_certificate_key(claims.get('client_id'), cert='public'),
+                           issuer=ISSUER,
+                           algorithm='HS256', verify=True)
+            except (jwt.exceptions.InvalidTokenError,
+                    jwt.exceptions.InvalidSignatureError,
+                    jwt.exceptions.InvalidIssuerError,
+                    jwt.exceptions.ExpiredSignatureError) as e:
+                return {}
 
-        if r.status_code == 200:
-            html = BeautifulSoup(r.text, 'lxml')
-            if html.title.text.strip() == 'Vedlikehold':
-                return True
-            elif html.title.text.strip().startswith('Release'):
-                return True
-    except:
-        return True
+        return claims
 
-    return False
+    except (jwt.exceptions.InvalidTokenError,
+            jwt.exceptions.InvalidSignatureError,
+            jwt.exceptions.InvalidIssuerError,
+            jwt.exceptions.ExpiredSignatureError):
+        app.logger.exception('Could not decode state')
+
+    return None
 
 
 class Auth:
@@ -48,60 +64,27 @@ class Auth:
         self.decoded_token = None
 
     def _set_client(self):
-        self.client = clients.get(self.client_id, None)
-
-        # if self.client is None:
-        #    raise Exception
+        self.client = CLIENTS.get(self.client_id, None)
 
     def _get_client(self):
-        return clients.get(self.client_id, {})
+        return CLIENTS.get(self.client_id, {})
 
-    def _get_key(self, cert='private'):
-        certificate = None
-        with open('certs/{}-{}.pem'.format(self._get_client().get('certificate'), cert), 'rb') as f:
-            certificate = f.read()
+    def verify_activity(self) -> bool:
+        """Check that person has activity according to client access"""
+        act_status, activities = lungo.get_activities(self.person_id)
 
-        return certificate
+        if act_status is True:
 
-    def _retry_login(self):
-        try:
-            pb = Passbuy(RETRY_USER['username'], RETRY_USER['password'], REALM)
-            pb.login()
-        except:
-            pass
+            if any(x in activities for x in CLIENTS[self.client_id]['activities']):
+                return True
 
-    def authenticate_user_credentials(self, username, password, client_id):
-
-        pb = Passbuy(username.strip(), password.strip(), REALM)
-
-        try:
-            status, self.person_id, fed = pb.login()
-
-            if self.person_id > 0:
-
-                melwin_status, self.melwin_id = lungo.get_melwin_id(self.person_id)
-
-                if melwin_status is False:
-                    pass
-
-                act_status, activities = lungo.get_activities(self.person_id)
-
-                if act_status is True:
-
-                    if any(x in activities for x in clients[client_id]['activities']):
-                        return True
-
-            else:
-                pass
-
-        except AttributeError as e:
-            pass
-        except Exception as e:
-            pass
-
-        # Do not need for new login
-        # self._retry_login()
         return False
+
+    def get_melwin_id(self, person_id):
+        try:
+            melwin_status, self.melwin_id = lungo.get_melwin_id(person_id)
+        except:
+            self.melwin_id = None
 
     def verify_redirect_uri(self, redirect_uri):
 
@@ -152,20 +135,23 @@ class Auth:
             # "scope": self.client.get('scope', 'read')
         }
 
-        access_token = jwt.encode(payload, self._get_key('private'), algorithm='RS256').decode()
+        access_token = jwt.encode(payload, get_certificate_key(client_id=self.client_id, cert='private'),
+                                  algorithm='RS256').decode()
 
         return access_token
 
     def verify_token(self, token):
         try:
-            self.decoded_token = jwt.decode(token, self._get_key('public'), issuer=ISSUER, algorithm='HS256')
+            self.decoded_token = jwt.decode(token, get_certificate_key(client_id=self.client_id, cert='private'),
+                                            issuer=ISSUER, algorithm='HS256')
             return True
 
         except (jwt.exceptions.InvalidTokenError,
                 jwt.exceptions.InvalidSignatureError,
                 jwt.exceptions.InvalidIssuerError,
                 jwt.exceptions.ExpiredSignatureError):
-            return False
+            app.logger.exception('Could not verify token')
+        return False
 
     def get_client_id_from_token(self, token):
         try:
@@ -177,13 +163,15 @@ class Auth:
                 jwt.exceptions.InvalidSignatureError,
                 jwt.exceptions.InvalidIssuerError,
                 jwt.exceptions.ExpiredSignatureError):
-            return None
+            app.logger.exception('Could not get id from token')
+
+        return None
 
     def refresh_token(self, token):
 
         try:
             decoded_token = jwt.decode(token,
-                                       self._get_key('public'),
+                                       get_certificate_key(client_id=self.client_id, cert='private'),
                                        options={'verify_exp': False},
                                        issuer=ISSUER,
                                        algorithm='HS256')
@@ -195,11 +183,16 @@ class Auth:
                 jwt.exceptions.InvalidSignatureError,
                 jwt.exceptions.InvalidIssuerError,
                 jwt.exceptions.ExpiredSignatureError):
-            return False
+            app.logger.exception('Could not refresh token')
+
+        return False
 
     def get_user_id(self, token):
         try:
-            decoded_token = jwt.decode(token, self._get_key('public'), options={'verify_exp': False}, issuer=ISSUER,
+            decoded_token = jwt.decode(token,
+                                       get_certificate_key(client_id=self.client_id, cert='private'),
+                                       options={'verify_exp': False},
+                                       issuer=ISSUER,
                                        algorithm='HS256')
             return int(decoded_token.get('id', None))
 
@@ -207,4 +200,6 @@ class Auth:
                 jwt.exceptions.InvalidSignatureError,
                 jwt.exceptions.InvalidIssuerError,
                 jwt.exceptions.ExpiredSignatureError):
-            return False
+            app.logger.exception('Could not get user id from token')
+
+        return False
