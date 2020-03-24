@@ -157,18 +157,25 @@ def oidc_ret():
 
                     _auth.person_id = person_id
 
+                    # Verify activity!
+                    if _auth.verify_activity() is not True:
+                        return process_error('access_denied',
+                                             redirect_uri=args.get('redirect_uri', None),
+                                             shebang=args.get('shebang', False))
+
                     _auth.get_melwin_id(person_id)
 
                     token = _auth.generate_access_token()
 
-            return redirect(process_redirect_uri(args.get('redirect_uri', None),
-                                                 {
-                                                     _auth.client.get('response_type', 'access_token'): token,
-                                                     'token_type': 'JWT',
-                                                     'expires_in': JWT_INTITAL,
-                                                     'scope': _auth.client.get('scope', 'read'),
-                                                 },
-                                                 args.get('shebang', False)), code=302)
+                    # User successfully authenticated!
+                    return redirect(process_redirect_uri(args.get('redirect_uri', None),
+                                                         {
+                                                             _auth.client.get('response_type', 'access_token'): token,
+                                                             'token_type': 'JWT',
+                                                             'expires_in': JWT_INTITAL,
+                                                             'scope': _auth.client.get('scope', 'read'),
+                                                         },
+                                                         args.get('shebang', False)), code=302)
         else:
             return process_error('access_denied',
                                  redirect_uri=args.get('redirect_uri', None),
