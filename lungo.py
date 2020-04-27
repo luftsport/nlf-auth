@@ -6,7 +6,7 @@ def get_activities(person_id):
     activities = []
 
     # resp = requests.get('%s/ka/members/activities/member?aggregate={"$person_id": %s}' % (API_URL, person_id),
-    resp = requests.get('%s/persons/%s?projection={"activities":1}' % (API_URL, person_id),
+    resp = requests.get('%s/persons/%s?projection={"memberships":1}' % (API_URL, person_id),
                         headers=API_HEADERS)
 
     if resp.status_code == 200:
@@ -14,7 +14,7 @@ def get_activities(person_id):
         # for item in resp_json.get('_items', []):
         #    if item.get('_id', None) in PATHNAMES.keys():
         #        activities.append(PATHNAMES[item.get('_id')])
-        activities = resp_json.get('activities', [27])
+        activities = [x['activity'] for x in resp_json.get('memberships', [])]
 
         return True, activities
 
