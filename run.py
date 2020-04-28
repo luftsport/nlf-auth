@@ -279,7 +279,8 @@ def introspection():
                     "access_token": access_token,
                     "refresh_token": refresh_token,
                     "token_type": "bearer",
-                    "expires_in": _auth.decoded_token.get('iss'),
+                    "expires_in": _auth.decoded_token.get('exp'),
+                    "issuer": _auth.decoded_token.get('iss'),
                     "scope": "read",
                     "person_id": _auth.decoded_token.get('person_id'),
                     "melwin_id": _auth.decoded_token.get('melwin_id', 0)
