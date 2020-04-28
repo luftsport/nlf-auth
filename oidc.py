@@ -86,7 +86,7 @@ class OIDC:
 
     def get_person_id(self, buypass_id):
 
-        api = NifApiUser(NIF_FEDERATION_USERNAME, NIF_FEDERATION_PASSWORD, log_file='nif_prod.log', realm=NIF_REALM)
+        api = NifApiUser(NIF_FEDERATION_USERNAME, NIF_FEDERATION_PASSWORD, log_file='nif_{}.log'.format(NIF_REALM), realm=NIF_REALM)
 
         status, person_id = api.get_person_id(buypass_id)
 
