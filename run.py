@@ -250,6 +250,49 @@ def verify():
         'error': 'access_denied'
     }), 401
 
+@app.route('/introspection', methods=['POST'])
+def introspection():
+    """
+    The protected resource calls the introspection endpoint using an HTTP
+    POST [RFC7231] request with parameters sent as
+    "application/x-www-form-urlencoded
+    :return:
+    """
+    token = request.form.get('access_token', None)
+    client_id = request.form.get('client_id', None)
+    client_secret = request.form.get('client_secret', None)
+
+    if client_id is not None:
+
+        _auth = Auth(client_id)
+
+        if token is not None and _auth.verify_client_secret(client_secret):
+            if _auth.verify_token(token) is True:
+                _auth.person_id = _auth.decoded_token.get('person_id')
+                _auth.client_id = _auth.decoded_token.get('client_id')
+                _auth.melwin_id = _auth.decoded_token.get('melwin_id', 0)
+
+                access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
+                refresh_token = _auth.generate_access_token(expiry=JWT_INTITAL)
+
+                return json.dumps({
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "token_type": "bearer",
+                    "expires_in": _auth.decoded_token.get('iss'),
+                    "scope": "read",
+                    "person_id": _auth.decoded_token.get('person_id'),
+                    "melwin_id": _auth.decoded_token.get('melwin_id', 0)
+                }), 200
+
+        return json.dumps({
+            'error': 'access_denied'
+        }), 401
+
+    return json.dumps({
+        'error': 'unsupported_response_type'
+    }), 401
+
 
 @app.route('/confluence/token', methods=['POST'])
 def confluence_token():
