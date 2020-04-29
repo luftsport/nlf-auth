@@ -4,8 +4,7 @@ from auth import Auth, JWT_LIFE_SPAN, JWT_INTITAL, generate_state, decode_state
 from flask import Flask, redirect, render_template, request
 from urllib.parse import urlencode
 from settings import (
-    ERR, API_URL,
-    API_HEADERS,
+    ERR,
     CLIENT_BASE_URL,
     CLIENT_ID,
     SERVER_BASE_URL,
@@ -15,39 +14,13 @@ from settings import (
     SERVER_DEBUG
 )
 
-import requests
+from lungo import get_lungo_person
 import logging
 from oidc import OIDC
 import time
 
 app = Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
-
-
-def get_lungo_person(person_id):
-    """Resolve name and email by person id
-    @TODO Remove
-    """
-    try:
-        r = requests.get('{}/persons/{}?projection={{"full_name": 1, "address": 1}}'.format(API_URL, person_id),
-                         headers=API_HEADERS)
-
-        if r.status_code == 200:
-
-            resp = r.json()
-
-            try:
-                email = resp.get('address', {}).get('email')[0]
-            except Exception as e:
-                app.logger.exception('Could not get email adress from Lungo data')
-                email = ''
-
-            return resp.get('full_name', 'Ukjent Navn'), email
-
-    except Exception as e:
-        app.logger.exception('Could not get user from Lungo')
-
-    return 'Ukjent Navn', ''
 
 
 def process_redirect_uri(redirect_uri, new_entries, shebang=False):
