@@ -4,8 +4,7 @@ from auth import Auth, JWT_LIFE_SPAN, JWT_INTITAL, generate_state, decode_state
 from flask import Flask, redirect, render_template, request
 from urllib.parse import urlencode
 from settings import (
-    ERR, API_URL,
-    API_HEADERS,
+    ERR,
     CLIENT_BASE_URL,
     CLIENT_ID,
     SERVER_BASE_URL,
