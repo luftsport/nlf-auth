@@ -35,7 +35,7 @@ def decode_state(state, verify=True):
                 jwt.decode(jwt=state,
                            key=get_certificate_key(claims.get('client_id'), cert='public'),
                            issuer=ISSUER,
-                           algorithm='HS256', verify=True)
+                           algorithms=['RS256'], verify=True)
             except (jwt.exceptions.InvalidTokenError,
                     jwt.exceptions.InvalidSignatureError,
                     jwt.exceptions.InvalidIssuerError,
@@ -145,7 +145,8 @@ class Auth:
         try:
             self.decoded_token = jwt.decode(token,
                                             get_certificate_key(client_id=self.client_id, cert='public'),
-                                            issuer=ISSUER, algorithm='HS256')
+                                            issuer=ISSUER,
+                                            algorithms=['RS256'])
             return True
 
         except (jwt.exceptions.InvalidTokenError,
@@ -176,7 +177,7 @@ class Auth:
                                        get_certificate_key(client_id=self.client_id, cert='public'),
                                        options={'verify_exp': False},
                                        issuer=ISSUER,
-                                       algorithm='HS256')
+                                       algorithms=['RS256'])
 
             self.person_id = decoded_token.get('person_id', None)
             return self.generate_access_token()
@@ -195,7 +196,7 @@ class Auth:
                                        get_certificate_key(client_id=self.client_id, cert='public'),
                                        options={'verify_exp': False},
                                        issuer=ISSUER,
-                                       algorithm='HS256')
+                                       algorithms=['RS256'])
             return int(decoded_token.get('id', None))
 
         except (jwt.exceptions.InvalidTokenError,
