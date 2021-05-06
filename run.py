@@ -353,7 +353,7 @@ def logout():
     # args = request.get_json(force=True)
     # request.args.get
     client_id = request.args.get('client_id', None)
-    redirect_uri = request.args.get('redirect_uri', None)
+    redirect_uri = request.args.get('redirect_uri', '')
     _state = generate_state(request.args)
     if client_id is not None:
         _auth = Auth(client_id)
@@ -369,11 +369,12 @@ def logout():
 def logged_out(state):
     args = decode_state(state=state)
     client_id = args.get('client_id', None)
-    return_uri = args.get('redirect_uri', None)
+    return_uri = args.get('redirect_uri', '')
 
     if client_id is not None:
         _auth = Auth(client_id)
-        return redirect('{}/{}'.format(_auth.client.get('redirect_uri').rstrip('/'), return_uri.lstrip('/')), code=302)
+        if _auth.verify_redirect_uri(return_uri) is True:
+            return redirect(return_uri, code=302)
 
     return process_error('server_error',
                          redirect_uri=return_uri,
