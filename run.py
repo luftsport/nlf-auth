@@ -11,7 +11,14 @@ from settings import (
     SERVER_PROXY_SIGNING,
     SERVER_PROXY_AUTH,
     SERVER_PORT,
-    SERVER_DEBUG
+    SERVER_DEBUG,
+    OIDC_PROTOCOL,
+    OIDC_AUTH_URL,
+    OIDC_TOKEN_URL,
+    OIDC_USER_INFO_URL,
+    OIDC_LOGOUT_URL,
+    OIDC_CONFIG_URL
+
 )
 
 from lungo import get_lungo_person
@@ -101,9 +108,7 @@ def oidc_proxy_chain():
               'response_type': 'code',
               'scope': 'openid roles web-origins'}
 
-    nif_bp_url = '{}/protocol/openid-connect/auth'.format(CLIENT_BASE_URL)
-
-    return redirect(process_redirect_uri(nif_bp_url, params), code=302)
+    return redirect(process_redirect_uri(OIDC_AUTH_URL, params), code=302)
 
 
 @app.route('/{}'.format(SERVER_PROXY_SIGNING), methods=['GET'])
@@ -341,6 +346,37 @@ def confluence_user():
     return json.dumps({
         'error': 'access_denied'
     }), 401
+
+
+@app.route('/logout', methods=['GET'])
+def logout():
+    args = request.get_json(force=True)
+    client_id = args.get('client_id', None)
+    redirect_uri = args.get('redirect_uri', None)
+    _state = generate_state(request.args)
+    if client_id is not None:
+        _auth = Auth(client_id)
+        params = {'redirect_uri': '{}/logged/out/{}'.format(SERVER_BASE_URL, _state)}
+        return redirect(process_redirect_uri(OIDC_LOGOUT_URL, params), code=302)
+
+    return process_error('server_error',
+                         redirect_uri=redirect_uri,
+                         shebang=args.get('shebang', False))
+
+
+@app.route('/logged/out/<string:state>', methods=['GET'])
+def logged_out(state):
+    args = decode_state(state=state)
+    client_id = args.get('client_id', None)
+    return_uri = args.get('redirect_uri', None)
+
+    if client_id is not None:
+        _auth = Auth(client_id)
+        return redirect('{}/{}'.format(_auth.client.get('redirect_uri').rstrip('/'), return_uri.lstrip('/')), code=302)
+
+    return process_error('server_error',
+                         redirect_uri=return_uri,
+                         shebang=args.get('shebang', False))
 
 
 @app.route('/user', methods=['POST'])
