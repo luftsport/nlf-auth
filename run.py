@@ -354,7 +354,7 @@ def logout():
     # request.args.get
     client_id = request.args.get('client_id', None)
     redirect_uri = request.args.get('redirect_uri', '')
-    _state = generate_state(request.args)
+    _state = generate_state({'client_id': client_id, 'redirect_uri': redirect_uri})
     if client_id is not None:
         _auth = Auth(client_id)
         params = {'redirect_uri': '{}/logged/out/{}'.format(SERVER_BASE_URL, _state)}
@@ -365,9 +365,9 @@ def logout():
                          shebang=request.args.get('shebang', False))
 
 
-@app.route('/logged/out/<string:state>', methods=['GET'])
-def logged_out(state):
-    args = decode_state(state=state)
+@app.route('/logged/out/<string:_state>', methods=['GET'])
+def logged_out(_state):
+    args = decode_state(state=_state)
     client_id = args.get('client_id', None)
     return_uri = args.get('redirect_uri', '')
 
