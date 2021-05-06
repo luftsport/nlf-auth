@@ -350,8 +350,6 @@ def confluence_user():
 
 @app.route('/logout', methods=['GET'])
 def logout():
-    # args = request.get_json(force=True)
-    # request.args.get
     client_id = request.args.get('client_id', None)
     redirect_uri = request.args.get('redirect_uri', '')
     _state = generate_state({'client_id': client_id, 'redirect_uri': redirect_uri})
@@ -376,7 +374,6 @@ def logged_out(_state):
         if _auth.verify_redirect_uri(return_uri) is True:
             return redirect(return_uri, code=302)
 
-    app.logger.error(args,return_uri, client_id, _auth.verify_redirect_uri(return_uri))
     return process_error('server_error',
                          redirect_uri=return_uri,
                          shebang=args.get('shebang', False))
