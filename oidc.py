@@ -97,7 +97,11 @@ class OIDC:
 
         _status, person = api.get_person(person_id)
         if _status is True:
-            return True, person.get('full_name', None), person.get('primary_email', None)
+            try:
+                email = person.get('primary_email').strip()
+            except:
+                email = None
+            return True, person.get('full_name', None), email
 
         return False, None, None
 
