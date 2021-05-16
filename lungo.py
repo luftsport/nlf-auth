@@ -25,6 +25,9 @@ def get_lungo_person(person_id):
                     app.logger.exception('Could not get email adress from Lungo data')
                     email = None
 
+            if email is not None:
+                email = email.strip()
+                
             return True, resp.get('full_name', None), email
 
     except Exception as e:
