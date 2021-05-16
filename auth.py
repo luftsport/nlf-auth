@@ -1,6 +1,6 @@
 import jwt
 import time
-from settings import CLIENTS, ISSUER, JWT_LIFE_SPAN, JWT_INTITAL
+from settings import CLIENTS, ISSUER, JWT_LIFE_SPAN, JWT_INTITAL, PUBLIC
 import lungo
 from flask import current_app as app
 
@@ -71,6 +71,11 @@ class Auth:
 
     def verify_activity(self) -> bool:
         """Check that person has activity according to client access"""
+
+        # If ALL allowed
+        if PUBLIC in CLIENTS[self.client_id]['activities']:
+            return True
+
         act_status, activities = lungo.get_activities(self.person_id)
 
         if act_status is True:
