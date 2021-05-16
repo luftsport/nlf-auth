@@ -17,7 +17,7 @@ from settings import (
     OIDC_CONFIG_URL
 )
 
-from nif_api import NifApiUser
+from nif_api import NifApiUser, NifApiIntegration
 
 
 # from flask import current_app as app
@@ -91,6 +91,15 @@ class OIDC:
         status, person_id = api.get_person_id(buypass_id)
 
         return status, person_id
+
+    def get_ws_person(self, person_id):
+        api = NifApiIntegration(NIF_FEDERATION_USERNAME, NIF_FEDERATION_PASSWORD, log_file='nif_{}.log'.format(NIF_REALM), realm=NIF_REALM)
+
+        _status, person = api.get_person(person_id)
+        if _status is True:
+            return True, person.get('full_name', None), person.get('primary_email', None)
+
+        return False, None, None
 
     def get_config(self):
         resp = requests.get(OIDC_CONFIG_URL)

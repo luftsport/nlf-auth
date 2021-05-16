@@ -15,18 +15,22 @@ def get_lungo_person(person_id):
 
             resp = r.json()
 
-            try:
-                email = resp.get('address', {}).get('email')[0]
-            except Exception as e:
-                app.logger.exception('Could not get email adress from Lungo data')
-                email = ''
+            if 'primary_email' in resp:
+                email = resp.get('primary_email', None)
+            else:
+                # Backport
+                try:
+                    email = resp.get('address', {}).get('email')[0]
+                except Exception as e:
+                    app.logger.exception('Could not get email adress from Lungo data')
+                    email = None
 
-            return resp.get('full_name', 'Ukjent Navn'), email
+            return True, resp.get('full_name', None), email
 
     except Exception as e:
         app.logger.exception('Could not get user from Lungo')
 
-    return 'Ukjent Navn', ''
+    return False, None, None
 
 
 def get_activities(person_id):

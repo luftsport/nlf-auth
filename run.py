@@ -332,7 +332,7 @@ def confluence_user():
                 person_id = _auth.decoded_token.get('person_id', 0)
 
                 if person_id is not False and person_id > 0:
-                    name, email = get_lungo_person(person_id)
+                    _status, name, email = get_lungo_person(person_id)
                     # @TODO get real name from Lungo
                     return json.dumps({
                         'person_id': person_id,

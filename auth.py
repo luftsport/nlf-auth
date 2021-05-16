@@ -57,7 +57,10 @@ class Auth:
     def __init__(self, client_id):
 
         self.person_id = None
+        self.person_name = None
+        self.person_email = None
         self.melwin_id = None
+
         self.client = None
         self.client_id = client_id
         self._set_client()
@@ -69,11 +72,17 @@ class Auth:
     def _get_client(self):
         return CLIENTS.get(self.client_id, {})
 
+    def allow_non_members(self):
+        if PUBLIC in CLIENTS[self.client_id]['activities']:
+            return True
+
+        return False
+
     def verify_activity(self) -> bool:
         """Check that person has activity according to client access"""
 
         # If ALL allowed
-        if PUBLIC in CLIENTS[self.client_id]['activities']:
+        if self.allow_non_members() is True:
             return True
 
         act_status, activities = lungo.get_activities(self.person_id)
@@ -120,6 +129,11 @@ class Auth:
 
         return False
 
+    def _get_ws_person(self, person_id):
+        from oidc import OIDC
+        oidc = OIDC()
+        return oidc.get_ws_person(self.person_id)
+
     def generate_access_token(self, expiry=JWT_LIFE_SPAN):
         """
         “exp” (Expiration Time) Claim
@@ -130,6 +144,17 @@ class Auth:
 
         :return:
         """
+
+        non_member = False
+        # Members return True (in membership api)
+        _status, self.person_name, self.person_email = lungo.get_lungo_person(self.person_id)
+
+        if _status is False:
+            # If non-members is allowed:
+            if self.allow_non_members() is True:
+                _, self.person_name, self.person_email = self._get_ws_person(self.person_id)
+                non_member = True
+
         payload = {
             "iss": ISSUER,
             "exp": time.time() + expiry,
@@ -137,6 +162,9 @@ class Auth:
             "person_id": self.person_id,
             "melwin_id": self.melwin_id,
             "client_id": self.client_id,
+            "full_name": self.person_name,
+            "email": self.person_email,
+            "non_member": non_member
             # "scope": self.client.get('scope', 'read')
         }
 
