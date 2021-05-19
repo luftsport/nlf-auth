@@ -248,9 +248,6 @@ def introspection():
 
         if token is not None and _auth.verify_client_secret(client_secret):
             if _auth.verify_token(token) is True:
-                _auth.person_id = _auth.decoded_token.get('person_id')
-                _auth.client_id = _auth.decoded_token.get('client_id')
-                _auth.melwin_id = _auth.decoded_token.get('melwin_id', 0)
 
                 access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
                 refresh_token = _auth.generate_access_token(expiry=JWT_INTITAL)
@@ -263,7 +260,12 @@ def introspection():
                     "issuer": _auth.decoded_token.get('iss'),
                     "scope": "read",
                     "person_id": _auth.decoded_token.get('person_id'),
-                    "melwin_id": _auth.decoded_token.get('melwin_id', 0)
+                    "melwin_id": _auth.decoded_token.get('melwin_id', 0),
+                    "full_name": _auth.decoded_token.get('full_name', None),
+                    "first_name": _auth.decoded_token.get('first_name', None),
+                    "last_name": _auth.decoded_token.get('last_name', None),
+                    "email": _auth.decoded_token.get('email', None),
+                    "activities": _auth.decoded_token.get('activities', []),
                 }), 200
 
         return json.dumps({
