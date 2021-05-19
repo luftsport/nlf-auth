@@ -85,15 +85,18 @@ class Auth:
         """Check that person has activity according to client access"""
 
         # If ALL allowed
-        if self.allow_non_members() is True:
-            return True
+
 
         act_status, self.activities = lungo.get_activities(self.person_id)
+
 
         if act_status is True:
 
             if any(x in self.activities for x in CLIENTS[self.client_id]['activities']):
                 return True
+
+        if self.allow_non_members() is True:
+            return True
 
         return False
 
