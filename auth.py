@@ -88,11 +88,11 @@ class Auth:
         if self.allow_non_members() is True:
             return True
 
-        act_status, activities = lungo.get_activities(self.person_id)
+        act_status, self.activities = lungo.get_activities(self.person_id)
 
         if act_status is True:
 
-            if any(x in activities for x in CLIENTS[self.client_id]['activities']):
+            if any(x in self.activities for x in CLIENTS[self.client_id]['activities']):
                 return True
 
         return False
@@ -169,7 +169,8 @@ class Auth:
             "first_name": self.first_name,
             "last_name": self.last_name,
             "email": self.email,
-            "member": non_member
+            "member": member,
+            "activities": self.activities
             # "scope": self.client.get('scope', 'read')
         }
 
