@@ -44,7 +44,7 @@ def get_activities(person_id):
         # for item in resp_json.get('_items', []):
         #    if item.get('_id', None) in PATHNAMES.keys():
         #        activities.append(PATHNAMES[item.get('_id')])
-        activities = [x['activity'] for x in resp_json.get('memberships', [])]
+        activities = list(set([x['activity'] for x in resp_json.get('memberships', [])]))
 
         return True, activities
 
