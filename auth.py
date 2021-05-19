@@ -151,7 +151,6 @@ class Auth:
         :return:
         """
 
-        member = True
         # Members return True (in membership api)
         _status, self.first_name, self.last_name, self.email = lungo.get_lungo_person(self.person_id)
 
@@ -159,7 +158,6 @@ class Auth:
             # If non-members is allowed:
             if self.allow_non_members() is True:
                 _, self.first_name, self.last_name, self.email = self._get_ws_person(self.person_id)
-                member = False
 
         payload = {
             "iss": ISSUER,
@@ -172,7 +170,6 @@ class Auth:
             "first_name": self.first_name,
             "last_name": self.last_name,
             "email": self.email,
-            "member": member,
             "activities": self.activities
             # "scope": self.client.get('scope', 'read')
         }
