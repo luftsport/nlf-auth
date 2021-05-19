@@ -57,8 +57,11 @@ class Auth:
     def __init__(self, client_id):
 
         self.person_id = None
-        self.person_name = None
-        self.person_email = None
+        self.full_name = None
+        self.first_name = None
+        self.last_name = None
+        self.email = None
+        self.activities = []
         self.melwin_id = None
 
         self.client = None
@@ -145,15 +148,15 @@ class Auth:
         :return:
         """
 
-        non_member = False
+        member = True
         # Members return True (in membership api)
-        _status, self.person_name, self.person_email = lungo.get_lungo_person(self.person_id)
+        _status, self.first_name, self.last_name, self.email = lungo.get_lungo_person(self.person_id)
 
         if _status is False:
             # If non-members is allowed:
             if self.allow_non_members() is True:
-                _, self.person_name, self.person_email = self._get_ws_person(self.person_id)
-                non_member = True
+                _, self.first_name, self.last_name, self.email = self._get_ws_person(self.person_id)
+                member = False
 
         payload = {
             "iss": ISSUER,
@@ -162,9 +165,11 @@ class Auth:
             "person_id": self.person_id,
             "melwin_id": self.melwin_id,
             "client_id": self.client_id,
-            "full_name": self.person_name,
-            "email": self.person_email,
-            "non_member": non_member
+            "full_name": self.first_name + ' ' + self.last_name,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "email": self.email,
+            "member": non_member
             # "scope": self.client.get('scope', 'read')
         }
 

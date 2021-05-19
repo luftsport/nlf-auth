@@ -101,9 +101,9 @@ class OIDC:
                 email = person.get('primary_email').strip()
             except:
                 email = None
-            return True, person.get('full_name', None), email
+            return True, person.get('first_name', None), person.get('last_name', None), email
 
-        return False, None, None
+        return False, None, None, None
 
     def get_config(self):
         resp = requests.get(OIDC_CONFIG_URL)

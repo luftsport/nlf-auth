@@ -24,12 +24,12 @@ def get_lungo_person(person_id):
             except:
                 email = None
 
-            return True, resp.get('full_name', None), email
+            return True, resp.get('first_name', None), resp.get('last_name', None), email
 
     except Exception as e:
         app.logger.exception('Could not get user from Lungo')
 
-    return False, None, None
+    return False, None, None, None
 
 
 def get_activities(person_id):
