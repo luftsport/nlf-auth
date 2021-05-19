@@ -33,7 +33,6 @@ def get_lungo_person(person_id):
 
 
 def get_activities(person_id):
-    activities = []
 
     # resp = requests.get('%s/ka/members/activities/member?aggregate={"$person_id": %s}' % (API_URL, person_id),
     resp = requests.get('%s/persons/%s?projection={"memberships":1}' % (API_URL, person_id),
@@ -48,7 +47,7 @@ def get_activities(person_id):
 
         return True, activities
 
-    return False, activities
+    return False, []
 
 
 def get_melwin_id(person_id):
