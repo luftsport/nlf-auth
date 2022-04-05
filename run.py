@@ -1,6 +1,6 @@
 import json
 import urllib.parse as urlparse
-from auth import Auth, JWT_LIFE_SPAN, JWT_INTITAL, generate_state, decode_state
+from auth import Auth, generate_state, decode_state
 from flask import Flask, redirect, render_template, request
 from urllib.parse import urlencode
 from settings import (
@@ -17,7 +17,9 @@ from settings import (
     OIDC_TOKEN_URL,
     OIDC_USER_INFO_URL,
     OIDC_LOGOUT_URL,
-    OIDC_CONFIG_URL
+    OIDC_CONFIG_URL,
+    JWT_INTITAL,
+    JWT_LIFE_SPAN
 
 )
 
