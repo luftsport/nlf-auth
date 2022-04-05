@@ -1,6 +1,6 @@
 import jwt
 import time
-from settings import CLIENTS, ISSUER, JWT_LIFE_SPAN, JWT_INTITAL, PUBLIC
+from settings import CLIENTS, ISSUER, JWT_LIFE_SPAN, PUBLIC, DO_NOT_VERIFY_ACTIVITY_FOR_PERSONS
 import lungo
 from flask import current_app as app
 
@@ -84,8 +84,9 @@ class Auth:
     def verify_activity(self) -> bool:
         """Check that person has activity according to client access"""
 
-        # If ALL allowed
-
+        # If person allowed anyway:
+        if self.person_id in DO_NOT_VERIFY_ACTIVITY_FOR_PERSONS:
+            return True
 
         act_status, self.activities = lungo.get_activities(self.person_id)
 
@@ -95,6 +96,7 @@ class Auth:
             if any(x in self.activities for x in CLIENTS[self.client_id]['activities']):
                 return True
 
+        # Allow ANY NIF member regardless of activity
         if self.allow_non_members() is True:
             return True
 
