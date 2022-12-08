@@ -155,6 +155,7 @@ def oidc_ret():
                                                              'token_type': 'JWT',
                                                              'expires_in': JWT_INTITAL,
                                                              'scope': _auth.client.get('scope', 'read'),
+                                                             'id_token': authorization.get('id_token', None)
                                                          },
                                                          args.get('shebang', False)), code=302)
         else:
@@ -250,7 +251,6 @@ def introspection():
 
         if token is not None and _auth.verify_client_secret(client_secret):
             if _auth.verify_token(token) is True:
-
                 access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
                 refresh_token = _auth.generate_access_token(expiry=JWT_INTITAL)
 
@@ -355,11 +355,19 @@ def confluence_user():
 @app.route('/logout', methods=['GET'])
 def logout():
     client_id = request.args.get('client_id', None)
-    redirect_uri = request.args.get('redirect_uri', '')
-    _state = generate_state({'client_id': client_id, 'redirect_uri': redirect_uri})
+    id_token = request.args.get('id_token_hint', None)
+
+    redirect_uri = request.args.get('redirect_uri', None)
+    redirect_url = request.args.get('redirect_url', None)
+
+    _state = generate_state({'client_id': client_id, 'redirect_url': redirect_uri or redirect_url})
+
     if client_id is not None:
         _auth = Auth(client_id)
-        params = {'redirect_uri': '{}/logged/out/{}'.format(SERVER_BASE_URL, _state)}
+        params = {
+            'post_logout_redirect_uri': '{}/logged/out/{}'.format(SERVER_BASE_URL, _state),
+            'id_token_hint': id_token
+        }
         return redirect(process_redirect_uri(OIDC_LOGOUT_URL, params), code=302)
 
     return process_error('server_error',
@@ -371,7 +379,7 @@ def logout():
 def logged_out(_state):
     args = decode_state(state=_state)
     client_id = args.get('client_id', None)
-    return_uri = args.get('redirect_uri', '')
+    return_uri = args.get('redirect_url', '')
 
     if client_id is not None:
         _auth = Auth(client_id)
@@ -381,7 +389,6 @@ def logged_out(_state):
     return process_error('server_error',
                          redirect_uri=return_uri,
                          shebang=args.get('shebang', False))
-
 
 
 @app.route('/user', methods=['POST'])
