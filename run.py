@@ -305,6 +305,7 @@ def confluence_token():
                 access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
                 refresh_token = _auth.generate_refresh_token(expiry=JWT_INTITAL)
                 id_token = _auth.generate_id_token(expiry=JWT_INTITAL)
+                state = _auth.decoded_token.get('state', None)
 
                 new_entries = {
                     "access_token": access_token,
@@ -313,8 +314,12 @@ def confluence_token():
                     "refresh_token": refresh_token,
                     "id_token": id_token,
                     "scope": scope,
-                    "person_id": _auth.decoded_token.get('person_id')
+                    "person_id": _auth.decoded_token.get('person_id'),
                 }
+
+                if state is not None:
+                    new_entries['state'] = state
+
                 return redirect(process_redirect_uri(redirect_uri, new_entries, False), code=302)
 
         return json.dumps({
