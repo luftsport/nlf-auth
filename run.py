@@ -309,7 +309,7 @@ def confluence_token():
                 new_entries = {
                     "access_token": access_token,
                     "token_type": "Bearer",
-                    "expires_in": 3600, #_auth.decoded_token.get('exp'),
+                    "expires_in": JWT_INTITAL, #_auth.decoded_token.get('exp'),
                     "refresh_token": refresh_token,
                     "id_token": id_token,
                     "scope": scope,
