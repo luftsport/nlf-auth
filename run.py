@@ -81,6 +81,7 @@ def oidc_proxy_chain():
     response_type = request.args.get('response_type', None)
     scope = request.args.get('scope', None)
     shebang = request.args.get('shebang', 0)
+    client_state = request.args.get('state', None)
 
     if None in [client_id, redirect_uri, response_type]:
         return process_error('invalid_request', redirect_uri=redirect_uri, shebang=shebang)
@@ -120,6 +121,7 @@ def oidc_ret():
 
         state = request.args.get('state')
         args = decode_state(state=state)
+        client_state = args.get('state', None)
 
         _auth = Auth(client_id=args.get('client_id', None))
 
@@ -148,15 +150,19 @@ def oidc_ret():
 
                     token = _auth.generate_access_token()
 
-                    # User successfully authenticated!
+                    # User successfully authenticated! 'state':
+                    new_entries = {
+                        _auth.client.get('response_type', 'access_token'): token,
+                        'token_type': 'JWT',
+                        'expires_in': JWT_INTITAL,
+                        'scope': _auth.client.get('scope', 'read'),
+                        'id_token': authorization.get('id_token', None),
+                    }
+                    if client_state is not None:
+                        new_entries['state'] = client_state
+
                     return redirect(process_redirect_uri(args.get('redirect_uri', None),
-                                                         {
-                                                             _auth.client.get('response_type', 'access_token'): token,
-                                                             'token_type': 'JWT',
-                                                             'expires_in': JWT_INTITAL,
-                                                             'scope': _auth.client.get('scope', 'read'),
-                                                             'id_token': authorization.get('id_token', None)
-                                                         },
+                                                         new_entries,
                                                          args.get('shebang', False)), code=302)
         else:
             return process_error('access_denied',
