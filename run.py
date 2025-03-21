@@ -124,7 +124,7 @@ def oidc_ret():
         client_state = args.get('state', None)
 
         _auth = Auth(client_id=args.get('client_id', None))
-
+        decoded_state = decode_state(state=state)
         oidc = OIDC()
 
         authz_status, authorization = oidc.get_authorization(code=request.args.get('code', None))
@@ -148,7 +148,7 @@ def oidc_ret():
 
                     _auth.get_melwin_id(person_id)
 
-                    token = _auth.generate_access_token(state=state)
+                    token = _auth.generate_access_token(state=decoded_state['state'])
 
                     # User successfully authenticated! 'state':
                     new_entries = {
