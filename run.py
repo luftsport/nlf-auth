@@ -290,6 +290,7 @@ def confluence_token():
     redirect_uri = request.form.get('redirect_uri', None)
     grant_type = request.form.get('grant_type', None)
     client_secret = request.form.get('client_secret', None)
+    scope = request.form.get('scope', 'read')
 
     if grant_type == 'authorization_code':
 
@@ -308,10 +309,10 @@ def confluence_token():
                 new_entries = {
                     "access_token": access_token,
                     "token_type": "Bearer",
-                    "expires_in": _auth.decoded_token.get('iss'),
+                    "expires_in": _auth.decoded_token.get('exp'),
                     "refresh_token": refresh_token,
                     "id_token": id_token,
-                    "scope": "read",
+                    "scope": scope,
                     "person_id": _auth.decoded_token.get('person_id')
                 }
                 return redirect(process_redirect_uri(redirect_uri, new_entries, False), code=302)
