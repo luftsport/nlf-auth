@@ -160,12 +160,7 @@ def oidc_ret():
                     }
                     if client_state is not None:
                         new_entries['state'] = client_state
-
-                    redirect_uri = args.get('redirect_uri', None)
-                    if 'nlf.discourse.group' in redirect_uri:
-                        redirect_uri = redirect_uri.split('/callback')[0]
-
-                    return redirect(process_redirect_uri(redirect_uri, new_entries, args.get('shebang', False)), code=302)
+                    return redirect(process_redirect_uri(args.get('redirect_uri', None), new_entries, args.get('shebang', False)), code=302)
         else:
             return process_error('access_denied',
                                  redirect_uri=args.get('redirect_uri', None),
@@ -323,6 +318,9 @@ def confluence_token():
 
                 if state is not None:
                     new_entries['state'] = state
+
+                if 'nlf.discourse.group' in redirect_uri:
+                    redirect_uri = redirect_uri.split('/callback')[0]
 
                 return redirect(process_redirect_uri(redirect_uri, new_entries, False), code=302)
 
