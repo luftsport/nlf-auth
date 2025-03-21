@@ -142,7 +142,7 @@ class Auth:
         oidc = OIDC()
         return oidc.get_ws_person(self.person_id)
 
-    def generate_access_token(self, expiry=JWT_LIFE_SPAN):
+    def generate_access_token(self, expiry=JWT_LIFE_SPAN, state=None):
         """
         “exp” (Expiration Time) Claim
         “nbf” (Not Before Time) Claim
@@ -172,9 +172,12 @@ class Auth:
             "first_name": self.first_name,
             "last_name": self.last_name,
             "email": self.email,
-            "activities": self.activities
+            "activities": self.activities,
             # "scope": self.client.get('scope', 'read')
         }  # "aud": self.client_id,
+
+        if state is not None:
+            payload['state'] = state
 
         access_token = jwt.encode(payload,
                                    get_certificate_key(client_id=self.client_id, cert='private'),
