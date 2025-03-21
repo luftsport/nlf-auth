@@ -165,6 +165,7 @@ class Auth:
             "iss": ISSUER,
             "exp": time.time() + expiry,
             "iat": time.time(),
+            "aud": self.client_id,
             "person_id": self.person_id,
             "melwin_id": self.melwin_id,
             "client_id": self.client_id,
