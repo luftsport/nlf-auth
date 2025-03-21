@@ -148,7 +148,7 @@ def oidc_ret():
 
                     _auth.get_melwin_id(person_id)
 
-                    token = _auth.generate_access_token(state=decoded_state['state'])
+                    token = _auth.generate_access_token(state=decoded_state.get('state', None))
 
                     # User successfully authenticated! 'state':
                     new_entries = {
