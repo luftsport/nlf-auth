@@ -22,6 +22,7 @@ def generate_state(payload, expiry=JWT_LIFE_SPAN):
     data['iss'] = ISSUER
     data['exp'] = time.time() + expiry
     data['iat'] = time.time()
+    data['aud'] = data.get('client_id', '')
     state = jwt.encode(data, key=get_certificate_key(data.get('client_id', '')), algorithm='RS256').decode()
 
     return state
