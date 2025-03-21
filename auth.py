@@ -176,6 +176,12 @@ class Auth:
             # "scope": self.client.get('scope', 'read')
         }  # "aud": self.client_id,
 
+        access_token = jwt.encode(payload,
+                                   get_certificate_key(client_id=self.client_id, cert='private'),
+                                   algorithm='RS256').decode()
+
+        return access_token
+
     def generate_refresh_token(self, expiry=JWT_LIFE_SPAN):
         """
         :return:
