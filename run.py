@@ -322,8 +322,8 @@ def confluence_token():
                 if 'nlf.discourse.group' in redirect_uri:
                     redirect_uri = redirect_uri.split('/callback')[0]
 
-                return json.dumps(new_entries), 200
-                # return redirect(process_redirect_uri(redirect_uri, new_entries, False), code=302)
+                #return json.dumps(new_entries), 200
+                return redirect(process_redirect_uri(redirect_uri, new_entries, False), code=301)
 
         return json.dumps({
             'error': 'access_denied'
