@@ -307,7 +307,7 @@ def confluence_token():
 
                 new_entries = {
                     "access_token": access_token,
-                    "token_type": "bearer",
+                    "token_type": "Bearer",
                     "expires_in": _auth.decoded_token.get('iss'),
                     "refresh_token": refresh_token,
                     "id_token": id_token,
