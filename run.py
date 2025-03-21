@@ -1,7 +1,7 @@
 import json
 import urllib.parse as urlparse
 from auth import Auth, generate_state, decode_state
-from flask import Flask, redirect, render_template, request
+from flask import Flask, redirect, render_template, request, jsonify
 from urllib.parse import urlencode
 from settings import (
     ERR,
@@ -309,7 +309,7 @@ def confluence_token():
                 new_entries = {
                     "access_token": access_token,
                     "token_type": "Bearer",
-                    "expires_in": _auth.decoded_token.get('exp'),
+                    "expires_in": 3600, #_auth.decoded_token.get('exp'),
                     "refresh_token": refresh_token,
                     "id_token": id_token,
                     "scope": scope,
@@ -319,11 +319,10 @@ def confluence_token():
                 if state is not None:
                     new_entries['state'] = state
 
-                if 'nlf.discourse.group' in redirect_uri:
-                    redirect_uri = redirect_uri.split('/callback')[0]
-
-                #return json.dumps(new_entries), 200
-                return redirect(process_redirect_uri(redirect_uri, new_entries, False), code=301)
+                return jsonify(new_entries), 200
+                # if 'nlf.discourse.group' in redirect_uri:
+                #    redirect_uri = redirect_uri.split('/callback')[0]
+                # return redirect(process_redirect_uri(redirect_uri, new_entries, False), code=301)
 
         return json.dumps({
             'error': 'access_denied'
