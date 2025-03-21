@@ -302,8 +302,8 @@ def confluence_token():
                 _auth.melwin_id = _auth.decoded_token.get('melwin_id', 0)
 
                 access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
-                refresh_token = _auth.generate_access_token(expiry=JWT_INTITAL)
-                id_token = _auth.generate_access_token(expiry=JWT_INTITAL)
+                refresh_token = _auth.generate_refresh_token(expiry=JWT_INTITAL)
+                id_token = _auth.generate_id_token(expiry=JWT_INTITAL)
 
                 new_entries = {
                     "access_token": access_token,

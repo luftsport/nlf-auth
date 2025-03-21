@@ -91,7 +91,6 @@ class Auth:
 
         act_status, self.activities = lungo.get_activities(self.person_id)
 
-
         if act_status is True:
 
             if any(x in self.activities for x in CLIENTS[self.client_id]['activities']):
@@ -166,7 +165,6 @@ class Auth:
             "iss": ISSUER,
             "exp": time.time() + expiry,
             "iat": time.time(),
-            # "aud": self.client_id,
             "person_id": self.person_id,
             "melwin_id": self.melwin_id,
             "client_id": self.client_id,
@@ -176,13 +174,64 @@ class Auth:
             "email": self.email,
             "activities": self.activities
             # "scope": self.client.get('scope', 'read')
+        }  # "aud": self.client_id,
+
+    def generate_refresh_token(self, expiry=JWT_LIFE_SPAN):
+        """
+        :return:
+        """
+        payload = {
+            "iss": ISSUER,
+            "exp": time.time() + expiry,
+            "iat": time.time(),
+            "client_id": self.client_id
+        }
+        refresh_token = jwt.encode(payload,
+                                   get_certificate_key(client_id=self.client_id, cert='private'),
+                                   algorithm='RS256').decode()
+
+        return refresh_token
+
+    def generate_id_token(self, expiry=JWT_LIFE_SPAN):
+        """
+        “exp” (Expiration Time) Claim
+        “nbf” (Not Before Time) Claim
+        “iss” (Issuer) Claim
+        “aud” (Audience) Claim
+        “iat” (Issued At) Claim
+
+        :return:
+        """
+
+        # Members return True (in membership api)
+        _status, self.first_name, self.last_name, self.email = lungo.get_lungo_person(self.person_id)
+
+        if _status is False:
+            # If non-members is allowed:
+            if self.allow_non_members() is True:
+                _, self.first_name, self.last_name, self.email = self._get_ws_person(self.person_id)
+
+        payload = {
+            "iss": ISSUER,
+            "exp": time.time() + expiry,
+            "iat": time.time(),
+            "person_id": self.person_id,
+            "melwin_id": self.melwin_id,
+            "client_id": self.client_id,
+            "full_name": self.first_name + ' ' + self.last_name,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "email": self.email,
+            "activities": self.activities,
+            "aud": self.client_id,
+            "sub": self.email,
         }
 
-        access_token = jwt.encode(payload,
-                                  get_certificate_key(client_id=self.client_id, cert='private'),
-                                  algorithm='RS256').decode()
+        id_token = jwt.encode(payload,
+                              get_certificate_key(client_id=self.client_id, cert='private'),
+                              algorithm='RS256').decode()
 
-        return access_token
+        return id_token
 
     def verify_token(self, token):
         try:
