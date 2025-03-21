@@ -303,12 +303,14 @@ def confluence_token():
 
                 access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
                 refresh_token = _auth.generate_access_token(expiry=JWT_INTITAL)
+                id_token = _auth.generate_access_token(expiry=JWT_INTITAL)
 
                 new_entries = {
                     "access_token": access_token,
                     "token_type": "bearer",
                     "expires_in": _auth.decoded_token.get('iss'),
                     "refresh_token": refresh_token,
+                    "id_token": id_token,
                     "scope": "read",
                     "person_id": _auth.decoded_token.get('person_id')
                 }
