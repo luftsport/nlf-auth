@@ -161,9 +161,7 @@ def oidc_ret():
                     if client_state is not None:
                         new_entries['state'] = client_state
 
-                    return redirect(process_redirect_uri(args.get('redirect_uri', None),
-                                                         new_entries,
-                                                         args.get('shebang', False)), code=302)
+                    return redirect(process_redirect_uri(args.get('redirect_uri', None), new_entries, args.get('shebang', False)), code=302)
         else:
             return process_error('access_denied',
                                  redirect_uri=args.get('redirect_uri', None),
@@ -306,14 +304,15 @@ def confluence_token():
                 access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
                 refresh_token = _auth.generate_access_token(expiry=JWT_INTITAL)
 
-                return json.dumps({
+                new_entries = {
                     "access_token": access_token,
                     "token_type": "bearer",
                     "expires_in": _auth.decoded_token.get('iss'),
                     "refresh_token": refresh_token,
                     "scope": "read",
                     "person_id": _auth.decoded_token.get('person_id')
-                }), 200
+                }
+                return redirect(process_redirect_uri(redirect_uri, new_entries, False), code=302)
 
         return json.dumps({
             'error': 'access_denied'
