@@ -94,7 +94,7 @@ class OIDC:
 
         status, person = REST_API.get_person(buypass_id=buypass_id)
 
-        return status, person.get('person_id')
+        return status, person.get('personId')
 
     def get_ws_person(self, person_id):
         # api = NifApiIntegration(NIF_FEDERATION_USERNAME, NIF_FEDERATION_PASSWORD, log_file='nif_{}.log'.format(NIF_REALM), realm=NIF_REALM)
@@ -102,10 +102,10 @@ class OIDC:
         _status, person = status, person = REST_API.get_person(person_id=person_id) #api.get_person(person_id)
         if _status is True:
             try:
-                email = person.get('primary_email').strip()
+                email = person.get('primaryEmail').strip()
             except:
                 email = None
-            return True, person.get('first_name', None), person.get('last_name', None), email
+            return True, person.get('firstName', None), person.get('lastName', None), email
 
         return False, None, None, None
 
