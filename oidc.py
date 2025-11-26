@@ -5,9 +5,6 @@ from settings import (
     CLIENT_ID,
     CLIENT_SECRET,
     CLIENT_BASE_URL,
-    NIF_FEDERATION_USERNAME,
-    NIF_FEDERATION_PASSWORD,
-    NIF_REALM,
     SERVER_BASE_URL,
     SERVER_PROXY_SIGNING,
     # SERVER_PROXY_AUTH,
@@ -18,10 +15,10 @@ from settings import (
 )
 
 from nif_api import NifApiUser, NifApiIntegration
-from settings import NIF_CLIENT_ID, NIF_CLIENT_ID, NIF_TOKEN_FILE, NIF_CLIENT_SECRET
+from settings import NIF_CLIENT_ID, NIF_TOKEN_FILE, NIF_CLIENT_SECRET, NIF_REALM
 from nif_rest_api_client.nif_rest_api_client import NifRestApiClient
 
-REST_API = NifRestApiClient(client_id=NIF_CLIENT_ID, client_secret=NIF_CLIENT_SECRET, token_file=NIF_TOKEN_FILE)
+REST_API = NifRestApiClient(client_id=NIF_CLIENT_ID, client_secret=NIF_CLIENT_SECRET, token_file=NIF_TOKEN_FILE, realm=NIF_REALM)
 
 
 # from flask import current_app as app
