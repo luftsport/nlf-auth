@@ -18,6 +18,10 @@ from settings import (
 )
 
 from nif_api import NifApiUser, NifApiIntegration
+from settings import NIF_CLIENT_ID, NIF_CLIENT_ID, NIF_TOKEN_FILE, NIF_CLIENT_SECRET
+from nif_rest_api_client.nif_rest_api_client import NifRestApiClient
+
+REST_API = NifRestApiClient(client_id=NIF_CLIENT_ID, client_secret=NIF_CLIENT_SECRET, token_file=NIF_TOKEN_FILE)
 
 
 # from flask import current_app as app
@@ -86,16 +90,16 @@ class OIDC:
 
     def get_person_id(self, buypass_id):
 
-        api = NifApiUser(NIF_FEDERATION_USERNAME, NIF_FEDERATION_PASSWORD, log_file='nif_{}.log'.format(NIF_REALM), realm=NIF_REALM)
+        # api = NifApiUser(NIF_FEDERATION_USERNAME, NIF_FEDERATION_PASSWORD, log_file='nif_{}.log'.format(NIF_REALM), realm=NIF_REALM)
 
-        status, person_id = api.get_person_id(buypass_id)
+        status, person = REST_API.get_person(buypass_id=buypass_id)
 
-        return status, person_id
+        return status, person.get('person_id')
 
     def get_ws_person(self, person_id):
-        api = NifApiIntegration(NIF_FEDERATION_USERNAME, NIF_FEDERATION_PASSWORD, log_file='nif_{}.log'.format(NIF_REALM), realm=NIF_REALM)
+        # api = NifApiIntegration(NIF_FEDERATION_USERNAME, NIF_FEDERATION_PASSWORD, log_file='nif_{}.log'.format(NIF_REALM), realm=NIF_REALM)
 
-        _status, person = api.get_person(person_id)
+        _status, person = status, person = REST_API.get_person(person_id=person_id) #api.get_person(person_id)
         if _status is True:
             try:
                 email = person.get('primary_email').strip()
