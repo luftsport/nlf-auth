@@ -282,6 +282,7 @@ def introspection():
     }), 401
 
 
+@app.route('/token', methods=['POST'])
 @app.route('/confluence/token', methods=['POST'])
 def confluence_token():
     token = request.form.get('code', None)
