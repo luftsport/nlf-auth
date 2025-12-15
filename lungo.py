@@ -33,9 +33,8 @@ def get_lungo_person(person_id):
 
 
 def get_activities(person_id):
-
     # resp = requests.get('%s/ka/members/activities/member?aggregate={"$person_id": %s}' % (API_URL, person_id),
-    resp = requests.get('%s/persons/%s?projection={"memberships":1}' % (API_URL, person_id),
+    resp = requests.get('%s/persons/%s?projection={"memberships":1, "federation": 1}' % (API_URL, person_id),
                         headers=API_HEADERS)
 
     if resp.status_code == 200:
@@ -43,8 +42,7 @@ def get_activities(person_id):
         # for item in resp_json.get('_items', []):
         #    if item.get('_id', None) in PATHNAMES.keys():
         #        activities.append(PATHNAMES[item.get('_id')])
-        activities = list(set([x['activity'] for x in resp_json.get('memberships', [])]))
-
+        activities = list(set([x['activity'] for x in resp_json.get('memberships', [])] + [x['activity'] for x in resp_json.get('federation', []) if x['name'] == 'Seksjonskontigent']))
         return True, activities
 
     return False, []
