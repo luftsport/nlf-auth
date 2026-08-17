@@ -69,6 +69,40 @@ def get_orgs(person_id):
     return False, []
 
 
+def get_person_roles_in_org(person_id, org_id):
+    """Returns flat list of all roles for a person in the given org
+    :param person_id: int
+    :return: tuple (bool, list)
+    """
+    resp = requests.get(f'{API_URL}/acl/club/{org_id}/simple/{person_id}',
+                        headers=API_HEADERS)
+
+    if resp.status_code == 200:
+        resp_json = resp.json()
+
+        groups = list(set(resp_json.get('_items', [])))
+        return groups
+
+    return []
+
+
+def get_person_roles_from_competences(person_id):
+    """Returns flat list of all competences for a person
+    :param person_id: int
+    :return: tuple (bool, list)
+    """
+    resp = requests.get(f'{API_URL}/acl/competences/simple/{person_id}',
+                        headers=API_HEADERS)
+
+    if resp.status_code == 200:
+        resp_json = resp.json()
+
+        competences = list(set(resp_json.get('_items', [])))
+        return competences
+
+    return []
+
+
 def get_melwin_id(person_id):
     melwin_id = None
 

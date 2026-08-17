@@ -262,6 +262,15 @@ class Auth:
             "sub": self.email,
         }
 
+        if CLIENTS[self.client_id].get('roles', False) is True:
+            roles = []
+            for org in CLIENTS[self.client_id].get('orgs', []):
+                roles.extend(lungo.get_person_roles_in_org(self.person_id, org))
+            roles.extend(lungo.get_person_roles_from_competences(self.person_id))
+            payload['roles'] = roles
+
+
+
         id_token = jwt.encode(payload,
                               get_certificate_key(client_id=self.client_id, cert='private'),
                               algorithm='RS256').decode()
