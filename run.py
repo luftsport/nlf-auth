@@ -283,8 +283,7 @@ def introspection():
 
 
 @app.route('/token', methods=['POST'])
-@app.route('/confluence/token', methods=['POST'])
-def confluence_token():
+def token():
     token = request.form.get('code', None)
     client_id = request.form.get('client_id', None)
     redirect_uri = request.form.get('redirect_uri', None)
@@ -334,8 +333,9 @@ def confluence_token():
     }), 401
 
 
-@app.route('/confluence/user', methods=['GET'])
-def confluence_user():
+@app.route('/user', methods=['GET'])
+@app.route('/userinfo', methods=['GET'])
+def userinfo():
     try:
         authorzation = request.headers.get('Authorization')
         token = authorzation.strip().split('Bearer ')[1]
@@ -353,7 +353,6 @@ def confluence_user():
 
                 if person_id is not False and person_id > 0:
                     _status, first_name, last_name, email = get_lungo_person(person_id)
-                    # @TODO get real name from Lungo
                     return json.dumps({
                         'person_id': person_id,
                         'email': email,

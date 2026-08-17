@@ -137,10 +137,10 @@ class Auth:
 
         return False
 
-    def _get_ws_person(self, person_id):
+    def _get_nif_api_person(self, person_id):
         from oidc import OIDC
         oidc = OIDC()
-        return oidc.get_ws_person(self.person_id)
+        return oidc.get_nif_api_person(self.person_id)
 
     def generate_access_token(self, expiry=JWT_LIFE_SPAN, state=None):
         """
@@ -159,7 +159,7 @@ class Auth:
         if _status is False:
             # If non-members is allowed:
             if self.allow_non_members() is True:
-                _, self.first_name, self.last_name, self.email = self._get_ws_person(self.person_id)
+                _, self.first_name, self.last_name, self.email = self._get_nif_api_person(self.person_id)
 
         payload = {
             "iss": ISSUER,
@@ -218,7 +218,7 @@ class Auth:
         if _status is False:
             # If non-members is allowed:
             if self.allow_non_members() is True:
-                _, self.first_name, self.last_name, self.email = self._get_ws_person(self.person_id)
+                _, self.first_name, self.last_name, self.email = self._get_nif_api_person(self.person_id)
 
         payload = {
             "iss": ISSUER,

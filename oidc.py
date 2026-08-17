@@ -87,16 +87,12 @@ class OIDC:
 
     def get_person_id(self, buypass_id):
 
-        # api = NifApiUser(NIF_FEDERATION_USERNAME, NIF_FEDERATION_PASSWORD, log_file='nif_{}.log'.format(NIF_REALM), realm=NIF_REALM)
-
         status, person = REST_API.get_person(buypass_id=buypass_id)
 
         return status, person.get('personId')
 
-    def get_ws_person(self, person_id):
-        # api = NifApiIntegration(NIF_FEDERATION_USERNAME, NIF_FEDERATION_PASSWORD, log_file='nif_{}.log'.format(NIF_REALM), realm=NIF_REALM)
-
-        _status, person = status, person = REST_API.get_person(person_id=person_id) #api.get_person(person_id)
+    def get_nif_api_person(self, person_id):
+        _status, person = status, person = REST_API.get_person(person_id=person_id)  # api.get_person(person_id)
         if _status is True:
             try:
                 email = person.get('primaryEmail').strip()
