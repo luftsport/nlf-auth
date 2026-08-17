@@ -140,6 +140,11 @@ def oidc_ret():
 
                     _auth.person_id = person_id
 
+                    # Verify org!
+                    if _auth.verify_org() is not True:
+                        return process_error('access_denied',
+                                             redirect_uri=args.get('redirect_uri', None),
+                                             shebang=args.get('shebang', False))
                     # Verify activity!
                     if _auth.verify_activity() is not True:
                         return process_error('access_denied',

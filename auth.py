@@ -85,6 +85,9 @@ class Auth:
     def verify_activity(self) -> bool:
         """Check that person has activity according to client access"""
 
+        if CLIENTS[self.client_id]['verify_activity'] is False:
+            return True
+
         # If person allowed anyway:
         if self.person_id in DO_NOT_VERIFY_ACTIVITY_FOR_PERSONS:
             return True
@@ -97,6 +100,29 @@ class Auth:
                 return True
 
         # Allow ANY NIF member regardless of activity
+        if self.allow_non_members() is True:
+            return True
+
+        return False
+
+    def verify_org(self) -> bool:
+        """Check that person has activity according to client access"""
+
+        if CLIENTS[self.client_id]['verify_orgs'] is False:
+            return True
+
+        # If person allowed anyway:
+        if self.person_id in DO_NOT_VERIFY_ORGS_FOR_PERSONS:
+            return True
+
+        status, self.orgs = lungo.get_orgs(self.person_id)
+
+        if status is True:
+
+            if any(x in self.orgs for x in CLIENTS[self.client_id]['orgs']):
+                return True
+
+        # Allow ANY NIF member regardless of org
         if self.allow_non_members() is True:
             return True
 
@@ -180,8 +206,8 @@ class Auth:
             payload['state'] = state
 
         access_token = jwt.encode(payload,
-                                   get_certificate_key(client_id=self.client_id, cert='private'),
-                                   algorithm='RS256').decode()
+                                  get_certificate_key(client_id=self.client_id, cert='private'),
+                                  algorithm='RS256').decode()
 
         return access_token
 

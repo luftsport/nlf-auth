@@ -33,6 +33,10 @@ def get_lungo_person(person_id):
 
 
 def get_activities(person_id):
+    """Returns list of all activities a person is member of, including memberships in clubs and federation
+    :param person_id: int
+    :return: tuple (bool, list)
+    """
     # resp = requests.get('%s/ka/members/activities/member?aggregate={"$person_id": %s}' % (API_URL, person_id),
     resp = requests.get('%s/persons/%s?projection={"memberships":1, "federation": 1}' % (API_URL, person_id),
                         headers=API_HEADERS)
@@ -44,6 +48,23 @@ def get_activities(person_id):
         #        activities.append(PATHNAMES[item.get('_id')])
         activities = list(set([x['activity'] for x in resp_json.get('memberships', [])] + [x['activity'] for x in resp_json.get('federation', []) if x['name'] == 'Seksjonskontigent']))
         return True, activities
+
+    return False, []
+
+
+def get_orgs(person_id):
+    """Returns list of all orgs a person is member of, including clubs and disciplines
+    :param person_id: int
+    :return: tuple (bool, list)
+    """
+    resp = requests.get('%s/persons/%s?projection={"memberships":1}' % (API_URL, person_id),
+                        headers=API_HEADERS)
+
+    if resp.status_code == 200:
+        resp_json = resp.json()
+
+        orgs = list(set([x['club'] for x in resp_json.get('memberships', [])] + [x['discipline'] for x in resp_json.get('memberships', [])]))
+        return True, orgs
 
     return False, []
 
