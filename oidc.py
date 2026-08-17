@@ -5,9 +5,6 @@ from settings import (
     CLIENT_ID,
     CLIENT_SECRET,
     CLIENT_BASE_URL,
-    NIF_FEDERATION_USERNAME,
-    NIF_FEDERATION_PASSWORD,
-    NIF_REALM,
     SERVER_BASE_URL,
     SERVER_PROXY_SIGNING,
     # SERVER_PROXY_AUTH,
@@ -17,7 +14,11 @@ from settings import (
     OIDC_CONFIG_URL
 )
 
-from nif_api import NifApiUser
+from nif_api import NifApiUser, NifApiIntegration
+from settings import NIF_CLIENT_ID, NIF_TOKEN_FILE, NIF_CLIENT_SECRET, NIF_REALM
+from nif_rest_api_client.nif_rest_api_client import NifRestApiClient
+
+REST_API = NifRestApiClient(client_id=NIF_CLIENT_ID, client_secret=NIF_CLIENT_SECRET, token_file=NIF_TOKEN_FILE, realm=NIF_REALM)
 
 
 # from flask import current_app as app
@@ -86,11 +87,20 @@ class OIDC:
 
     def get_person_id(self, buypass_id):
 
-        api = NifApiUser(NIF_FEDERATION_USERNAME, NIF_FEDERATION_PASSWORD, log_file='nif_{}.log'.format(NIF_REALM), realm=NIF_REALM)
+        status, person = REST_API.get_person(buypass_id=buypass_id)
 
-        status, person_id = api.get_person_id(buypass_id)
+        return status, person.get('personId')
 
-        return status, person_id
+    def get_nif_api_person(self, person_id):
+        _status, person = status, person = REST_API.get_person(person_id=person_id)  # api.get_person(person_id)
+        if _status is True:
+            try:
+                email = person.get('primaryEmail').strip()
+            except:
+                email = None
+            return True, person.get('firstName', None), person.get('lastName', None), email
+
+        return False, None, None, None
 
     def get_config(self):
         resp = requests.get(OIDC_CONFIG_URL)

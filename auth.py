@@ -1,6 +1,6 @@
 import jwt
 import time
-from settings import CLIENTS, ISSUER, JWT_LIFE_SPAN, JWT_INTITAL, PUBLIC
+from settings import CLIENTS, ISSUER, JWT_LIFE_SPAN, PUBLIC, DO_NOT_VERIFY_ACTIVITY_FOR_PERSONS
 import lungo
 from flask import current_app as app
 
@@ -22,6 +22,7 @@ def generate_state(payload, expiry=JWT_LIFE_SPAN):
     data['iss'] = ISSUER
     data['exp'] = time.time() + expiry
     data['iat'] = time.time()
+    # data['aud'] = data.get('client_id', '')
     state = jwt.encode(data, key=get_certificate_key(data.get('client_id', '')), algorithm='RS256').decode()
 
     return state
@@ -57,7 +58,13 @@ class Auth:
     def __init__(self, client_id):
 
         self.person_id = None
+        self.full_name = None
+        self.first_name = None
+        self.last_name = None
+        self.email = None
+        self.activities = []
         self.melwin_id = None
+
         self.client = None
         self.client_id = client_id
         self._set_client()
@@ -69,19 +76,29 @@ class Auth:
     def _get_client(self):
         return CLIENTS.get(self.client_id, {})
 
-    def verify_activity(self) -> bool:
-        """Check that person has activity according to client access"""
-
-        # If ALL allowed
+    def allow_non_members(self):
         if PUBLIC in CLIENTS[self.client_id]['activities']:
             return True
 
-        act_status, activities = lungo.get_activities(self.person_id)
+        return False
+
+    def verify_activity(self) -> bool:
+        """Check that person has activity according to client access"""
+
+        # If person allowed anyway:
+        if self.person_id in DO_NOT_VERIFY_ACTIVITY_FOR_PERSONS:
+            return True
+
+        act_status, self.activities = lungo.get_activities(self.person_id)
 
         if act_status is True:
 
-            if any(x in activities for x in CLIENTS[self.client_id]['activities']):
+            if any(x in self.activities for x in CLIENTS[self.client_id]['activities']):
                 return True
+
+        # Allow ANY NIF member regardless of activity
+        if self.allow_non_members() is True:
+            return True
 
         return False
 
@@ -120,7 +137,12 @@ class Auth:
 
         return False
 
-    def generate_access_token(self, expiry=JWT_LIFE_SPAN):
+    def _get_nif_api_person(self, person_id):
+        from oidc import OIDC
+        oidc = OIDC()
+        return oidc.get_nif_api_person(self.person_id)
+
+    def generate_access_token(self, expiry=JWT_LIFE_SPAN, state=None):
         """
         “exp” (Expiration Time) Claim
         “nbf” (Not Before Time) Claim
@@ -130,6 +152,15 @@ class Auth:
 
         :return:
         """
+
+        # Members return True (in membership api)
+        _status, self.first_name, self.last_name, self.email = lungo.get_lungo_person(self.person_id)
+
+        if _status is False:
+            # If non-members is allowed:
+            if self.allow_non_members() is True:
+                _, self.first_name, self.last_name, self.email = self._get_nif_api_person(self.person_id)
+
         payload = {
             "iss": ISSUER,
             "exp": time.time() + expiry,
@@ -137,14 +168,79 @@ class Auth:
             "person_id": self.person_id,
             "melwin_id": self.melwin_id,
             "client_id": self.client_id,
+            "full_name": self.first_name + ' ' + self.last_name,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "email": self.email,
+            "activities": self.activities,
             # "scope": self.client.get('scope', 'read')
-        }
+        }  # "aud": self.client_id,
+
+        if state is not None:
+            payload['state'] = state
 
         access_token = jwt.encode(payload,
-                                  get_certificate_key(client_id=self.client_id, cert='private'),
-                                  algorithm='RS256').decode()
+                                   get_certificate_key(client_id=self.client_id, cert='private'),
+                                   algorithm='RS256').decode()
 
         return access_token
+
+    def generate_refresh_token(self, expiry=JWT_LIFE_SPAN):
+        """
+        :return:
+        """
+        payload = {
+            "iss": ISSUER,
+            "exp": time.time() + expiry,
+            "iat": time.time(),
+            "client_id": self.client_id
+        }
+        refresh_token = jwt.encode(payload,
+                                   get_certificate_key(client_id=self.client_id, cert='private'),
+                                   algorithm='RS256').decode()
+
+        return refresh_token
+
+    def generate_id_token(self, expiry=JWT_LIFE_SPAN):
+        """
+        “exp” (Expiration Time) Claim
+        “nbf” (Not Before Time) Claim
+        “iss” (Issuer) Claim
+        “aud” (Audience) Claim
+        “iat” (Issued At) Claim
+
+        :return:
+        """
+
+        # Members return True (in membership api)
+        _status, self.first_name, self.last_name, self.email = lungo.get_lungo_person(self.person_id)
+
+        if _status is False:
+            # If non-members is allowed:
+            if self.allow_non_members() is True:
+                _, self.first_name, self.last_name, self.email = self._get_nif_api_person(self.person_id)
+
+        payload = {
+            "iss": ISSUER,
+            "exp": time.time() + expiry,
+            "iat": time.time(),
+            "person_id": self.person_id,
+            "melwin_id": self.melwin_id,
+            "client_id": self.client_id,
+            "full_name": self.first_name + ' ' + self.last_name,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "email": self.email,
+            "activities": self.activities,
+            "aud": self.client_id,
+            "sub": self.email,
+        }
+
+        id_token = jwt.encode(payload,
+                              get_certificate_key(client_id=self.client_id, cert='private'),
+                              algorithm='RS256').decode()
+
+        return id_token
 
     def verify_token(self, token):
         try:

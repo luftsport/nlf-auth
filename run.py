@@ -1,7 +1,7 @@
 import json
 import urllib.parse as urlparse
-from auth import Auth, JWT_LIFE_SPAN, JWT_INTITAL, generate_state, decode_state
-from flask import Flask, redirect, render_template, request
+from auth import Auth, generate_state, decode_state
+from flask import Flask, redirect, render_template, request, jsonify
 from urllib.parse import urlencode
 from settings import (
     ERR,
@@ -17,7 +17,9 @@ from settings import (
     OIDC_TOKEN_URL,
     OIDC_USER_INFO_URL,
     OIDC_LOGOUT_URL,
-    OIDC_CONFIG_URL
+    OIDC_CONFIG_URL,
+    JWT_INTITAL,
+    JWT_LIFE_SPAN
 
 )
 
@@ -79,6 +81,7 @@ def oidc_proxy_chain():
     response_type = request.args.get('response_type', None)
     scope = request.args.get('scope', None)
     shebang = request.args.get('shebang', 0)
+    client_state = request.args.get('state', None)
 
     if None in [client_id, redirect_uri, response_type]:
         return process_error('invalid_request', redirect_uri=redirect_uri, shebang=shebang)
@@ -118,9 +121,10 @@ def oidc_ret():
 
         state = request.args.get('state')
         args = decode_state(state=state)
+        client_state = args.get('state', None)
 
         _auth = Auth(client_id=args.get('client_id', None))
-
+        decoded_state = decode_state(state=state)
         oidc = OIDC()
 
         authz_status, authorization = oidc.get_authorization(code=request.args.get('code', None))
@@ -144,17 +148,19 @@ def oidc_ret():
 
                     _auth.get_melwin_id(person_id)
 
-                    token = _auth.generate_access_token()
+                    token = _auth.generate_access_token(state=decoded_state.get('state', None))
 
-                    # User successfully authenticated!
-                    return redirect(process_redirect_uri(args.get('redirect_uri', None),
-                                                         {
-                                                             _auth.client.get('response_type', 'access_token'): token,
-                                                             'token_type': 'JWT',
-                                                             'expires_in': JWT_INTITAL,
-                                                             'scope': _auth.client.get('scope', 'read'),
-                                                         },
-                                                         args.get('shebang', False)), code=302)
+                    # User successfully authenticated! 'state':
+                    new_entries = {
+                        _auth.client.get('response_type', 'access_token'): token,
+                        'token_type': 'JWT',
+                        'expires_in': JWT_INTITAL,
+                        'scope': _auth.client.get('scope', 'read'),
+                        'id_token': authorization.get('id_token', None),
+                    }
+                    if client_state is not None:
+                        new_entries['state'] = client_state
+                    return redirect(process_redirect_uri(args.get('redirect_uri', None), new_entries, args.get('shebang', False)), code=302)
         else:
             return process_error('access_denied',
                                  redirect_uri=args.get('redirect_uri', None),
@@ -248,10 +254,6 @@ def introspection():
 
         if token is not None and _auth.verify_client_secret(client_secret):
             if _auth.verify_token(token) is True:
-                _auth.person_id = _auth.decoded_token.get('person_id')
-                _auth.client_id = _auth.decoded_token.get('client_id')
-                _auth.melwin_id = _auth.decoded_token.get('melwin_id', 0)
-
                 access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
                 refresh_token = _auth.generate_access_token(expiry=JWT_INTITAL)
 
@@ -263,7 +265,12 @@ def introspection():
                     "issuer": _auth.decoded_token.get('iss'),
                     "scope": "read",
                     "person_id": _auth.decoded_token.get('person_id'),
-                    "melwin_id": _auth.decoded_token.get('melwin_id', 0)
+                    "melwin_id": _auth.decoded_token.get('melwin_id', 0),
+                    "full_name": _auth.decoded_token.get('full_name', None),
+                    "first_name": _auth.decoded_token.get('first_name', None),
+                    "last_name": _auth.decoded_token.get('last_name', None),
+                    "email": _auth.decoded_token.get('email', None),
+                    "activities": _auth.decoded_token.get('activities', []),
                 }), 200
 
         return json.dumps({
@@ -275,13 +282,14 @@ def introspection():
     }), 401
 
 
-@app.route('/confluence/token', methods=['POST'])
-def confluence_token():
+@app.route('/token', methods=['POST'])
+def token():
     token = request.form.get('code', None)
     client_id = request.form.get('client_id', None)
     redirect_uri = request.form.get('redirect_uri', None)
     grant_type = request.form.get('grant_type', None)
     client_secret = request.form.get('client_secret', None)
+    scope = request.form.get('scope', 'read')
 
     if grant_type == 'authorization_code':
 
@@ -294,16 +302,27 @@ def confluence_token():
                 _auth.melwin_id = _auth.decoded_token.get('melwin_id', 0)
 
                 access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
-                refresh_token = _auth.generate_access_token(expiry=JWT_INTITAL)
+                refresh_token = _auth.generate_refresh_token(expiry=JWT_INTITAL)
+                id_token = _auth.generate_id_token(expiry=JWT_INTITAL)
+                state = _auth.decoded_token.get('state', None)
 
-                return json.dumps({
+                new_entries = {
                     "access_token": access_token,
-                    "token_type": "bearer",
-                    "expires_in": _auth.decoded_token.get('iss'),
+                    "token_type": "Bearer",
+                    "expires_in": JWT_INTITAL, #_auth.decoded_token.get('exp'),
                     "refresh_token": refresh_token,
-                    "scope": "read",
-                    "person_id": _auth.decoded_token.get('person_id')
-                }), 200
+                    "id_token": id_token,
+                    "scope": scope,
+                    "person_id": _auth.decoded_token.get('person_id'),
+                }
+
+                if state is not None:
+                    new_entries['state'] = state
+
+                return jsonify(new_entries), 200
+                # if 'nlf.discourse.group' in redirect_uri:
+                #    redirect_uri = redirect_uri.split('/callback')[0]
+                # return redirect(process_redirect_uri(redirect_uri, new_entries, False), code=301)
 
         return json.dumps({
             'error': 'access_denied'
@@ -314,8 +333,9 @@ def confluence_token():
     }), 401
 
 
-@app.route('/confluence/user', methods=['GET'])
-def confluence_user():
+@app.route('/user', methods=['GET'])
+@app.route('/userinfo', methods=['GET'])
+def userinfo():
     try:
         authorzation = request.headers.get('Authorization')
         token = authorzation.strip().split('Bearer ')[1]
@@ -332,12 +352,11 @@ def confluence_user():
                 person_id = _auth.decoded_token.get('person_id', 0)
 
                 if person_id is not False and person_id > 0:
-                    name, email = get_lungo_person(person_id)
-                    # @TODO get real name from Lungo
+                    _status, first_name, last_name, email = get_lungo_person(person_id)
                     return json.dumps({
                         'person_id': person_id,
                         'email': email,
-                        'name': name
+                        'name': first_name.strip() + ' ' + last_name.strip()
                     }), 200
 
     except Exception as e:
@@ -351,11 +370,19 @@ def confluence_user():
 @app.route('/logout', methods=['GET'])
 def logout():
     client_id = request.args.get('client_id', None)
-    redirect_uri = request.args.get('redirect_uri', '')
-    _state = generate_state({'client_id': client_id, 'redirect_uri': redirect_uri})
+    id_token = request.args.get('id_token_hint', None)
+
+    redirect_uri = request.args.get('redirect_uri', None)
+    redirect_url = request.args.get('redirect_url', None)
+
+    _state = generate_state({'client_id': client_id, 'redirect_url': redirect_uri or redirect_url})
+
     if client_id is not None:
         _auth = Auth(client_id)
-        params = {'redirect_uri': '{}/logged/out/{}'.format(SERVER_BASE_URL, _state)}
+        params = {
+            'post_logout_redirect_uri': '{}/logged/out/{}'.format(SERVER_BASE_URL, _state),
+            'id_token_hint': id_token
+        }
         return redirect(process_redirect_uri(OIDC_LOGOUT_URL, params), code=302)
 
     return process_error('server_error',
@@ -367,7 +394,7 @@ def logout():
 def logged_out(_state):
     args = decode_state(state=_state)
     client_id = args.get('client_id', None)
-    return_uri = args.get('redirect_uri', '')
+    return_uri = args.get('redirect_url', '')
 
     if client_id is not None:
         _auth = Auth(client_id)
@@ -377,7 +404,6 @@ def logged_out(_state):
     return process_error('server_error',
                          redirect_uri=return_uri,
                          shebang=args.get('shebang', False))
-
 
 
 @app.route('/user', methods=['POST'])
