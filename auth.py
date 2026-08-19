@@ -269,8 +269,6 @@ class Auth:
             roles.extend(lungo.get_person_roles_from_competences(self.person_id))
             payload['roles'] = roles
 
-
-
         id_token = jwt.encode(payload,
                               get_certificate_key(client_id=self.client_id, cert='private'),
                               algorithm='RS256').decode()
