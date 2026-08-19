@@ -1,6 +1,6 @@
 import jwt
 import time
-from settings import CLIENTS, ISSUER, JWT_LIFE_SPAN, PUBLIC, DO_NOT_VERIFY_ACTIVITY_FOR_PERSONS
+from settings import CLIENTS, ISSUER, JWT_LIFE_SPAN, PUBLIC, DO_NOT_VERIFY_ACTIVITY_FOR_PERSONS, DO_NOT_VERIFY_ORGS_FOR_PERSONS
 import lungo
 from flask import current_app as app
 
