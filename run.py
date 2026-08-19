@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from settings import (
     ERR,
     CLIENTS,
+    ISSUER,
     CLIENT_BASE_URL,
     CLIENT_ID,
     SERVER_BASE_URL,
