@@ -5,6 +5,7 @@ from flask import Flask, redirect, render_template, request, jsonify
 from urllib.parse import urlencode
 from settings import (
     ERR,
+    CLIENTS,
     CLIENT_BASE_URL,
     CLIENT_ID,
     SERVER_BASE_URL,
@@ -18,6 +19,7 @@ from settings import (
     OIDC_USER_INFO_URL,
     OIDC_LOGOUT_URL,
     OIDC_CONFIG_URL,
+    OIDC_USERINFO_CLAIMS,
     JWT_INTITAL,
     JWT_LIFE_SPAN
 
@@ -28,8 +30,34 @@ import logging
 from oidc import OIDC
 import time
 
+from pathlib import Path
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+import base64
+
 app = Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
+
+
+def _b64url_uint(val: int) -> str:
+    """Convert integer to base64url without padding (for RSA n/e)."""
+    byte_length = (val.bit_length() + 7) // 8
+    return base64.urlsafe_b64encode(val.to_bytes(byte_length, "big")).rstrip(b"=").decode("ascii")
+
+
+def pem_to_jwk(pem_path: Path, kid: str) -> dict:
+    with open(pem_path, "rb") as f:
+        public_key = serialization.load_pem_public_key(f.read(), backend=default_backend())
+
+    numbers = public_key.public_numbers()
+    return {
+        "kty": "RSA",
+        "use": "sig",
+        "alg": "RS256",
+        "kid": kid,
+        "n": _b64url_uint(numbers.n),
+        "e": _b64url_uint(numbers.e),
+    }
 
 
 def process_redirect_uri(redirect_uri, new_entries, shebang=False):
@@ -64,6 +92,60 @@ def process_error(error, redirect_uri=None, shebang=0):
                                          },
                                          shebang),
                     code=ERR[error]['code'])
+
+
+@app.route('/.well-known/openid-configuration')
+def openid_configuration():
+    return jsonify({
+        "issuer": ISSUER,
+        "authorization_endpoint": f"{SERVER_BASE_URL}/{SERVER_PROXY_AUTH}",
+        "token_endpoint": f"{SERVER_BASE_URL}/token",
+        "userinfo_endpoint": f"{SERVER_BASE_URL}/userinfo",
+        "introspection_endpoint": f"{SERVER_BASE_URL}/introspection",
+        "jwks_uri": f"{SERVER_BASE_URL}/.well-known/jwks.json",
+        "response_types_supported": ["code"],
+        "subject_types_supported": ["public"],
+        "id_token_signing_alg_values_supported": ["RS256"],
+        "token_endpoint_auth_methods_supported": ["client_secret_post"],
+        "scopes_supported": ["read", "openid", "profile", "email"],
+        "claims_supported": [
+            "sub",
+            "person_id",
+            "melwin_id",
+            "roles",
+            "groups",
+            "activities",
+            "first_name",
+            "last_name",
+            "memberships",
+            "competences",
+            "name",
+            "email",
+            "email_verified"
+        ],
+    }), 200
+
+
+@app.route('/.well-known/jwks.json')
+def jwks_json():
+    keys = []
+
+    for client_id, client in CLIENTS.items():
+        if client.get('publish_certificate_in_jwks', False) is not True:
+            continue
+
+        cert_base = client.get("certificate")
+        if not cert_base:
+            continue
+
+        pem_path = Path("certs") / f"{cert_base}-public.pem"
+        if not pem_path.is_file():
+            continue
+
+        # kid can be client_id or the certificate base name
+        keys.append(pem_to_jwk(pem_path, kid=cert_base))
+
+    return jsonify({"keys": keys}), 200
 
 
 @app.route('/{}'.format(SERVER_PROXY_AUTH), methods=['GET'])
@@ -259,24 +341,8 @@ def introspection():
 
         if token is not None and _auth.verify_client_secret(client_secret):
             if _auth.verify_token(token) is True:
-                access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
-                refresh_token = _auth.generate_access_token(expiry=JWT_INTITAL)
-
-                return json.dumps({
-                    "access_token": access_token,
-                    "refresh_token": refresh_token,
-                    "token_type": "bearer",
-                    "expires_in": _auth.decoded_token.get('exp', time.time()) - time.time(),
-                    "issuer": _auth.decoded_token.get('iss'),
-                    "scope": "read",
-                    "person_id": _auth.decoded_token.get('person_id'),
-                    "melwin_id": _auth.decoded_token.get('melwin_id', 0),
-                    "full_name": _auth.decoded_token.get('full_name', None),
-                    "first_name": _auth.decoded_token.get('first_name', None),
-                    "last_name": _auth.decoded_token.get('last_name', None),
-                    "email": _auth.decoded_token.get('email', None),
-                    "activities": _auth.decoded_token.get('activities', []),
-                }), 200
+                _auth.decoded_token['active'] = True
+                return jsonify(_auth.decoded_token), 200
 
         return json.dumps({
             'error': 'access_denied'
@@ -314,7 +380,7 @@ def token():
                 new_entries = {
                     "access_token": access_token,
                     "token_type": "Bearer",
-                    "expires_in": JWT_INTITAL, #_auth.decoded_token.get('exp'),
+                    "expires_in": JWT_INTITAL,  # _auth.decoded_token.get('exp'),
                     "refresh_token": refresh_token,
                     "id_token": id_token,
                     "scope": scope,
@@ -335,40 +401,6 @@ def token():
 
     return json.dumps({
         'error': 'unsupported_response_type'
-    }), 401
-
-
-@app.route('/user', methods=['GET'])
-@app.route('/userinfo', methods=['GET'])
-def userinfo():
-    try:
-        authorzation = request.headers.get('Authorization')
-        token = authorzation.strip().split('Bearer ')[1]
-
-        _auth = Auth(None)
-        client_id = _auth.get_client_id_from_token(token)
-
-        if None not in [token, client_id]:
-
-            _auth = Auth(client_id)
-
-            if _auth.verify_token(token) is True:
-
-                person_id = _auth.decoded_token.get('person_id', 0)
-
-                if person_id is not False and person_id > 0:
-                    _status, first_name, last_name, email = get_lungo_person(person_id)
-                    return json.dumps({
-                        'person_id': person_id,
-                        'email': email,
-                        'name': first_name.strip() + ' ' + last_name.strip()
-                    }), 200
-
-    except Exception as e:
-        app.logger.exception('Could not get Confluence User')
-
-    return json.dumps({
-        'error': 'access_denied'
     }), 401
 
 
@@ -411,25 +443,44 @@ def logged_out(_state):
                          shebang=args.get('shebang', False))
 
 
-@app.route('/user', methods=['POST'])
-def user():
-    token = request.get_json(force=True).get('access_token', None)
+@app.route('/user', methods=['POST', 'GET'])
+@app.route('/userinfo', methods=['POST', 'GET'])
+def userinfo():
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header:
+        return jsonify({"error": "invalid_request", "error_description": "Authorization header missing"}), 401
+
+    parts = auth_header.split()
+    if len(parts) != 2 or parts[0].lower() != 'bearer':
+        return jsonify({"error": "invalid_request", "error_description": "Invalid Authorization header format"}), 401
+
+    token = parts[1]
+
+    # Verify client_id and the token
     _auth = Auth(None)
     client_id = _auth.get_client_id_from_token(token)
 
-    if None not in [token, client_id]:
-        _auth = Auth(client_id)
-        person_id = _auth.get_user_id(token)
+    if not client_id:
+        return jsonify({"error": "invalid_token"}), 401
 
-        if person_id is not False and person_id > 0:
-            return json.dumps({
-                'person_id': person_id,
+    _auth = Auth(client_id)
 
-            }), 200
+    if not _auth.verify_token(token):
+        return jsonify({"error": "invalid_token"}), 401
 
-    return json.dumps({
-        'error': 'access_denied'
-    }), 401
+    claims = _auth.decoded_token  # set by verify_token()
+
+    # Make response from whitelist
+    userinfo = {k: claims[k] for k in OIDC_USERINFO_CLAIMS if k in claims}
+
+    # OIDC requires "sub"
+    if "sub" not in userinfo and "person_id" in userinfo:
+        userinfo["sub"] = str(userinfo["person_id"])
+
+    if "sub" not in userinfo:
+        return jsonify({"error": "server_error", "error_description": "sub claim missing"}), 500
+
+    return jsonify(userinfo), 200
 
 
 @app.route('/error', methods=['GET'])
