@@ -353,6 +353,78 @@ def introspection():
         'error': 'unsupported_response_type'
     }), 401
 
+##### Legacy token endpoint and user info endpoint for compatibility with older clients #####
+@app.route('/confluence/token', methods=['POST'])
+def confluence_token():
+    token = request.form.get('code', None)
+    client_id = request.form.get('client_id', None)
+    redirect_uri = request.form.get('redirect_uri', None)
+    grant_type = request.form.get('grant_type', None)
+    client_secret = request.form.get('client_secret', None)
+
+    if grant_type == 'authorization_code':
+
+        _auth = Auth(client_id)
+
+        if token is not None and _auth.verify_client_secret(client_secret):
+            if _auth.verify_token(token) is True:
+                _auth.person_id = _auth.decoded_token.get('person_id')
+                _auth.client_id = _auth.decoded_token.get('client_id')
+                _auth.melwin_id = _auth.decoded_token.get('melwin_id', 0)
+
+                access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
+                refresh_token = _auth.generate_access_token(expiry=JWT_INTITAL)
+
+                return json.dumps({
+                    "access_token": access_token,
+                    "token_type": "bearer",
+                    "expires_in": _auth.decoded_token.get('iss'),
+                    "refresh_token": refresh_token,
+                    "scope": "read",
+                    "person_id": _auth.decoded_token.get('person_id')
+                }), 200
+
+        return json.dumps({
+            'error': 'access_denied'
+        }), 401
+
+    return json.dumps({
+        'error': 'unsupported_response_type'
+    }), 401
+
+
+@app.route('/confluence/user', methods=['GET'])
+def confluence_user():
+    try:
+        authorzation = request.headers.get('Authorization')
+        token = authorzation.strip().split('Bearer ')[1]
+
+        _auth = Auth(None)
+        client_id = _auth.get_client_id_from_token(token)
+
+        if None not in [token, client_id]:
+
+            _auth = Auth(client_id)
+
+            if _auth.verify_token(token) is True:
+
+                person_id = _auth.decoded_token.get('person_id', 0)
+
+                if person_id is not False and person_id > 0:
+                    name, email = get_lungo_person(person_id)
+                    # @TODO get real name from Lungo
+                    return json.dumps({
+                        'person_id': person_id,
+                        'email': email,
+                        'name': name
+                    }), 200
+
+    except Exception as e:
+        app.logger.exception('Could not get Confluence User')
+
+    return json.dumps({
+        'error': 'access_denied'
+    }), 401
 
 @app.route('/token', methods=['POST'])
 def token():
@@ -392,9 +464,6 @@ def token():
                     new_entries['state'] = state
 
                 return jsonify(new_entries), 200
-                # if 'nlf.discourse.group' in redirect_uri:
-                #    redirect_uri = redirect_uri.split('/callback')[0]
-                # return redirect(process_redirect_uri(redirect_uri, new_entries, False), code=301)
 
         return json.dumps({
             'error': 'access_denied'
