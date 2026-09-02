@@ -30,7 +30,7 @@ def generate_state(payload, expiry=JWT_LIFE_SPAN):
 
 def decode_state(state, verify=True):
     try:
-        claims = jwt.decode(state, verify=False)
+        claims = jwt.decode(state, verify=False, algorithms=['RS256'])
         if verify is True:
             try:
                 jwt.decode(jwt=state,
@@ -292,7 +292,7 @@ class Auth:
 
     def get_client_id_from_token(self, token):
         try:
-            claims = jwt.decode(token, verify=False)
+            claims = jwt.decode(token, verify=False, algorithms=['RS256'])
 
             return claims.get('client_id')
 
