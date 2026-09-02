@@ -23,7 +23,7 @@ def generate_state(payload, expiry=JWT_LIFE_SPAN):
     data['exp'] = time.time() + expiry
     data['iat'] = time.time()
     # data['aud'] = data.get('client_id', '')
-    state = jwt.encode(data, key=get_certificate_key(data.get('client_id', '')), algorithm='RS256').decode()
+    state = jwt.encode(data, key=get_certificate_key(data.get('client_id', '')), algorithm='RS256')
 
     return state
 
@@ -207,7 +207,7 @@ class Auth:
 
         access_token = jwt.encode(payload,
                                   get_certificate_key(client_id=self.client_id, cert='private'),
-                                  algorithm='RS256').decode()
+                                  algorithm='RS256')
 
         return access_token
 
@@ -223,7 +223,7 @@ class Auth:
         }
         refresh_token = jwt.encode(payload,
                                    get_certificate_key(client_id=self.client_id, cert='private'),
-                                   algorithm='RS256').decode()
+                                   algorithm='RS256')
 
         return refresh_token
 
@@ -271,7 +271,7 @@ class Auth:
 
         id_token = jwt.encode(payload,
                               get_certificate_key(client_id=self.client_id, cert='private'),
-                              algorithm='RS256').decode()
+                              algorithm='RS256')
 
         return id_token
 
