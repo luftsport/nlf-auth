@@ -30,13 +30,13 @@ def generate_state(payload, expiry=JWT_LIFE_SPAN):
 
 def decode_state(state, verify=True):
     try:
-        claims = jwt.decode(state, verify=False, algorithms=['RS256'])
+        claims = jwt.decode(state, options={"verify_signature": False}, algorithms=['RS256'])
         if verify is True:
             try:
                 jwt.decode(jwt=state,
                            key=get_certificate_key(claims.get('client_id'), cert='public'),
                            issuer=ISSUER,
-                           algorithms=['RS256'], verify=True)
+                           algorithms=['RS256'], options={"verify_signature": False})
             except (jwt.exceptions.InvalidTokenError,
                     jwt.exceptions.InvalidSignatureError,
                     jwt.exceptions.InvalidIssuerError,
@@ -292,7 +292,7 @@ class Auth:
 
     def get_client_id_from_token(self, token):
         try:
-            claims = jwt.decode(token, verify=False, algorithms=['RS256'])
+            claims = jwt.decode(token, options={"verify_signature": False}, algorithms=['RS256'])
 
             return claims.get('client_id')
 
