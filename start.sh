@@ -12,7 +12,8 @@ then
         source bin/acticate
 fi
 
-$GUNICORN --workers=2 -b localhost:5001 run:app --timeout 60 --graceful-timeout 60 --log-level=debug --log-file=unicorn.log --pid gunicorn.pid &
+umask 0022
+$GUNICORN --workers=2 -b localhost:5001 run:app --timeout 60 --graceful-timeout 60 --log-level=debug --log-file=unicorn.log --pid /var/run/nlf_auth.pid &
 
 if [[ INVENV == 0 ]]    
 then

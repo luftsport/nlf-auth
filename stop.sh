@@ -1,7 +1,7 @@
 #!/bin/bash
 
 WORKING_DIR="${PWD}/"
-PID_FILE="${PWD}/gunicorn.pid"
+PID_FILE="/var/run/nlf_auth.pid"
 cd $WORKING_DIR
 
 if [ ! -f $PID_FILE ];then
