@@ -361,6 +361,7 @@ def confluence_token():
     redirect_uri = request.form.get('redirect_uri', None)
     grant_type = request.form.get('grant_type', None)
     client_secret = request.form.get('client_secret', None)
+    scope = request.form.get('scope', 'read')
 
     if grant_type == 'authorization_code':
 
@@ -373,16 +374,27 @@ def confluence_token():
                 _auth.melwin_id = _auth.decoded_token.get('melwin_id', 0)
 
                 access_token = _auth.generate_access_token(expiry=JWT_INTITAL)
-                refresh_token = _auth.generate_access_token(expiry=JWT_INTITAL)
+                refresh_token = _auth.generate_refresh_token(expiry=JWT_INTITAL)
+                id_token = _auth.generate_id_token(expiry=JWT_INTITAL)
+                state = _auth.decoded_token.get('state', None)
 
-                return json.dumps({
+                new_entries = {
                     "access_token": access_token,
-                    "token_type": "bearer",
-                    "expires_in": _auth.decoded_token.get('iss'),
+                    "token_type": "Bearer",
+                    "expires_in": JWT_INTITAL, #_auth.decoded_token.get('exp'),
                     "refresh_token": refresh_token,
-                    "scope": "read",
-                    "person_id": _auth.decoded_token.get('person_id')
-                }), 200
+                    "id_token": id_token,
+                    "scope": scope,
+                    "person_id": _auth.decoded_token.get('person_id'),
+                }
+
+                if state is not None:
+                    new_entries['state'] = state
+
+                return jsonify(new_entries), 200
+                # if 'nlf.discourse.group' in redirect_uri:
+                #    redirect_uri = redirect_uri.split('/callback')[0]
+                # return redirect(process_redirect_uri(redirect_uri, new_entries, False), code=301)
 
         return json.dumps({
             'error': 'access_denied'
@@ -411,12 +423,12 @@ def confluence_user():
                 person_id = _auth.decoded_token.get('person_id', 0)
 
                 if person_id is not False and person_id > 0:
-                    name, email = get_lungo_person(person_id)
+                    _status, first_name, last_name, email = get_lungo_person(person_id)
                     # @TODO get real name from Lungo
                     return json.dumps({
                         'person_id': person_id,
                         'email': email,
-                        'name': name
+                        'name': first_name.strip() + ' ' + last_name.strip()
                     }), 200
 
     except Exception as e:
