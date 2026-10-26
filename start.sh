@@ -13,7 +13,7 @@ then
 fi
 
 umask 0022
-$GUNICORN --workers=2 -b localhost:5001 run:app --timeout 60 --graceful-timeout 60 --log-level=debug --log-file=unicorn.log --pid /var/run/nlf_auth.pid &
+$GUNICORN --workers=2 -b localhost:5001 run:app --timeout 60 --graceful-timeout 60 --log-level=debug --log-file=unicorn.log --pid /var/local/run/nlf_auth/nlf_auth.pid &
 
 if [[ INVENV == 0 ]]    
 then
