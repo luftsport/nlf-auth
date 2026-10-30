@@ -557,7 +557,7 @@ def userinfo():
 
     # Add avatar
     userinfo['picture'] = f"{SERVER_BASE_URL}/avatar"
-    
+
     # OIDC requires "sub"
     if "sub" not in userinfo and "person_id" in userinfo:
         userinfo["sub"] = str(userinfo["person_id"])
@@ -592,8 +592,10 @@ def get_avatar():
     if not _auth.verify_token(token):
         return jsonify({"error": "invalid_token"}), 401
 
+    claims = _auth.decoded_token
+    userinfo = {k: claims[k] for k in OIDC_USERINFO_CLAIMS if k in claims}
     # Okey he is authenticated let's get the avatar from Lungo
-    status, avatar = get_lungo_avatar(_auth.person_id)
+    status, avatar = get_lungo_avatar(userinfo.get('person_id', None))
 
     if status is False or avatar is None:
         abort(404, description="Avatar not found")
