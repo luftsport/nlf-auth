@@ -1,7 +1,7 @@
 import json
 import urllib.parse as urlparse
 from auth import Auth, generate_state, decode_state
-from flask import Flask, redirect, render_template, request, jsonify
+from flask import Flask, redirect, render_template, request, jsonify, send_file, abort
 from urllib.parse import urlencode
 from settings import (
     ERR,
@@ -25,8 +25,8 @@ from settings import (
     JWT_LIFE_SPAN
 
 )
-
-from lungo import get_lungo_person
+from io import BytesIO
+from lungo import get_lungo_person, get_lungo_avatar
 import logging
 from oidc import OIDC
 import time
@@ -555,6 +555,9 @@ def userinfo():
     # Make response from whitelist
     userinfo = {k: claims[k] for k in OIDC_USERINFO_CLAIMS if k in claims}
 
+    # Add avatar
+    userinfo['picture'] = f"{SERVER_BASE_URL}/avatar"
+    
     # OIDC requires "sub"
     if "sub" not in userinfo and "person_id" in userinfo:
         userinfo["sub"] = str(userinfo["person_id"])
@@ -564,6 +567,56 @@ def userinfo():
 
     return jsonify(userinfo), 200
 
+
+@app.route('/avatar')
+def get_avatar():
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header:
+        return jsonify({"error": "invalid_request", "error_description": "Authorization header missing"}), 401
+
+    parts = auth_header.split()
+    if len(parts) != 2 or parts[0].lower() != 'bearer':
+        return jsonify({"error": "invalid_request", "error_description": "Invalid Authorization header format"}), 401
+
+    token = parts[1]
+
+    # Verify client_id and the token
+    _auth = Auth(None)
+    client_id = _auth.get_client_id_from_token(token)
+
+    if not client_id:
+        return jsonify({"error": "invalid_token"}), 401
+
+    _auth = Auth(client_id)
+
+    if not _auth.verify_token(token):
+        return jsonify({"error": "invalid_token"}), 401
+
+    # Okey he is authenticated let's get the avatar from Lungo
+    status, avatar = get_lungo_avatar(_auth.person_id)
+
+    if status is False or avatar is None:
+        abort(404, description="Avatar not found")
+
+    try:
+        # 2. Clean the string if it contains the data URI prefix (e.g., "data:image/png;base64,")
+        if "," in avatar:
+            base64_data = avatar.split(",")[1]
+        else:
+            base64_data = avatar
+
+        # 3. Decode the base64 string into raw binary bytes
+        image_bytes = base64.b64decode(base64_data)
+
+        # 4. Convert bytes into a file-like object and stream it as a PNG
+        return send_file(
+            BytesIO(image_bytes),
+            mimetype='image/png',
+            as_attachment=False
+        )
+
+    except Exception as e:
+        abort(500, description="Failed to process image data")
 
 @app.route('/error', methods=['GET'])
 def error():

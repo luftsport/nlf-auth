@@ -31,7 +31,29 @@ def get_lungo_person(person_id):
 
     return False, None, None, None
 
+def get_lungo_avatar(person_id):
+    """Resolve avatar by person id
+    @TODO Remove
+    """
+    try:
+        r = requests.get(f'{API_URL}/persons/avatar/{person_id}',
+                         headers=API_HEADERS)
 
+        if r.status_code == 200:
+
+            resp = r.json()
+
+            try:
+                avatar = resp.get('avatar', None)
+            except:
+                avatar = None
+
+            return True, avatar
+
+    except Exception as e:
+        app.logger.exception('Could not get user from Lungo')
+
+    return False, None
 def get_activities(person_id):
     """Returns list of all activities a person is member of, including memberships in clubs and federation
     :param person_id: int
