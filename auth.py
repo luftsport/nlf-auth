@@ -331,7 +331,7 @@ class Auth:
                                        options={'verify_exp': False},
                                        issuer=ISSUER,
                                        algorithms=['RS256'])
-            return int(decoded_token.get('id', None))
+            return int(decoded_token.get('person_id', decoded_token.get('id', None)))
 
         except (jwt.exceptions.InvalidTokenError,
                 jwt.exceptions.InvalidSignatureError,
