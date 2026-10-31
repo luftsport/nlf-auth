@@ -36,7 +36,7 @@ def get_lungo_avatar(person_id):
     @TODO Remove
     """
     try:
-        r = requests.get(f'{API_URL}/persons/avatar/{person_id}',
+        r = requests.get(f'{API_URL}/obsreg/persons/avatar/{person_id}',
                          headers=API_HEADERS)
 
         if r.status_code == 200:

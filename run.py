@@ -579,11 +579,9 @@ def get_avatar():
         return jsonify({"error": "invalid_request", "error_description": "Invalid Authorization header format"}), 401
 
     token = parts[1]
-
     # Verify client_id and the token
     _auth = Auth(None)
     client_id = _auth.get_client_id_from_token(token)
-
     if not client_id:
         return jsonify({"error": "invalid_token"}), 401
 
@@ -594,9 +592,9 @@ def get_avatar():
 
     claims = _auth.decoded_token
     userinfo = {k: claims[k] for k in OIDC_USERINFO_CLAIMS if k in claims}
+
     # Okey he is authenticated let's get the avatar from Lungo
     status, avatar = get_lungo_avatar(userinfo.get('person_id', None))
-
     if status is False or avatar is None:
         abort(404, description="Avatar not found")
 
